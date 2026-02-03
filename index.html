@@ -3,79 +3,71 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Geometry Dash TMA</title>
+    <title>GD Fixed</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        body, html { margin: 0; padding: 0; overflow: hidden; background: #001a2d; font-family: sans-serif; }
+        body, html { margin: 0; padding: 0; overflow: hidden; background: #001a2d; font-family: 'Arial', sans-serif; }
         canvas { display: block; }
+        #ui {
+            position: absolute; top: 20px; width: 100%; text-align: center;
+            color: white; font-size: 24px; font-weight: bold; text-shadow: 2px 2px 0 #000;
+            pointer-events: none; z-index: 5;
+        }
         #menu {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            background: rgba(0,0,0,0.85); z-index: 10; color: white;
+            background: rgba(0,0,0,0.8); z-index: 10; color: white;
         }
-        .play-btn {
-            padding: 20px 60px; font-size: 30px; background: #2ecc71;
-            color: white; border: none; border-radius: 15px; cursor: pointer;
-            box-shadow: 0 5px 0 #1a5e3a; font-weight: bold;
-        }
-        .play-btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #1a5e3a; }
+        .btn { padding: 15px 50px; font-size: 28px; background: #2ecc71; color: white; border: none; border-radius: 12px; cursor: pointer; }
     </style>
 </head>
 <body>
+    <div id="ui">SCORE: 0</div>
     <div id="menu">
-        <h1 style="font-size: 40px; margin-bottom: 30px;">GEOMETRY DASH</h1>
-        <button class="play-btn" onclick="startGame()">PLAY</button>
+        <h1>GEOMETRY DASH</h1>
+        <button class="btn" onclick="startGame()">START</button>
     </div>
-
     <canvas id="game"></canvas>
 
     <script>
         const canvas = document.getElementById('game');
         const ctx = canvas.getContext('2d');
+        const scoreEl = document.getElementById('ui');
         const menu = document.getElementById('menu');
 
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
 
-        let isPlaying = false;
+        let active = false;
+        let score = 0;
         let frame = 0;
-        const groundY = canvas.height - 100;
+        const groundY = canvas.height - 80;
 
-        // Настройки игрока
         const player = {
-            x: 80, y: groundY - 40,
-            w: 40, h: 40,
-            vy: 0, gravity: 0.8,
-            jump: -13, rot: 0,
-            particles: [] // Тот самый шлейф
+            x: 60, y: groundY - 40, w: 36, h: 36, // Чуть уменьшил размер для честности
+            vy: 0, grav: 0.8, jump: -12, rot: 0,
+            parts: []
         };
 
         let obstacles = [];
 
         function startGame() {
-            isPlaying = true;
+            active = true;
             menu.style.display = 'none';
+            score = 0;
+            frame = 0;
+            obstacles = [];
             player.y = groundY - 40;
             player.vy = 0;
-            obstacles = [];
-            frame = 0;
+            scoreEl.innerText = "SCORE: 0";
         }
 
         function loop() {
-            // Рисуем фон (синий)
-            ctx.fillStyle = '#0072ff';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#0072ff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#005bb5'; ctx.fillRect(0, groundY, canvas.width, 80);
 
-            // Рисуем пол
-            ctx.fillStyle = '#005bb5';
-            ctx.fillRect(0, groundY, canvas.width, 100);
-            ctx.strokeStyle = 'white';
-            ctx.lineWidth = 3;
-            ctx.strokeRect(-10, groundY, canvas.width + 20, 2);
-
-            if (isPlaying) {
-                // Физика прыжка
-                player.vy += player.gravity;
+            if (active) {
+                player.vy += player.grav;
                 player.y += player.vy;
 
                 if (player.y > groundY - player.h) {
@@ -83,70 +75,64 @@
                     player.vy = 0;
                     player.rot = 0;
                 } else {
-                    player.rot += 6; // Крутится в прыжке
+                    player.rot += 7;
                 }
 
-                // Шлейф (квадратики)
-                if (frame % 2 === 0) {
-                    player.particles.push({x: player.x, y: player.y + 15, life: 1});
-                }
-                player.particles.forEach((p, i) => {
-                    p.x -= 6;
-                    p.life -= 0.05;
-                    if (p.life <= 0) player.particles.splice(i, 1);
-                    ctx.fillStyle = `rgba(255, 255, 255, ${p.life})`;
-                    ctx.fillRect(p.x, p.y, 12, 12);
+                // Шлейф
+                if (frame % 2 === 0) player.parts.push({x: player.x, y: player.y + 15, a: 1});
+                player.parts.forEach((p, i) => {
+                    p.x -= 6; p.a -= 0.05;
+                    if (p.a <= 0) player.parts.splice(i, 1);
+                    ctx.fillStyle = `rgba(255,255,255,${p.a})`;
+                    ctx.fillRect(p.x, p.y, 10, 10);
                 });
 
-                // Спавн шипов
-                if (frame % 80 === 0) {
-                    obstacles.push({x: canvas.width, w: 40, h: 40});
+                // Спавн препятствий (увеличил интервал, чтобы не сразу проигрывать)
+                if (frame > 50 && frame % 100 === 0) {
+                    obstacles.push({x: canvas.width, w: 35, h: 35});
                 }
 
-                // Движение шипов
                 obstacles.forEach((o, i) => {
-                    o.x -= 8;
-                    // Рисуем шип (треугольник)
+                    o.x -= 7;
+                    // Рисуем шип
                     ctx.fillStyle = '#333';
                     ctx.beginPath();
                     ctx.moveTo(o.x, groundY);
                     ctx.lineTo(o.x + 20, groundY - 40);
                     ctx.lineTo(o.x + 40, groundY);
                     ctx.fill();
-                    ctx.strokeStyle = 'white';
-                    ctx.stroke();
 
-                    // Коллизия (смерть)
-                    if (player.x + 35 > o.x && player.x + 5 < o.x + 40 && player.y + 35 > groundY - 40) {
-                        isPlaying = false;
+                    // Честная коллизия (хитбокс меньше визуального шипа)
+                    if (player.x + 30 > o.x + 10 && player.x + 5 < o.x + 30 && player.y + 30 > groundY - 35) {
+                        active = false;
                         menu.style.display = 'flex';
                     }
 
-                    if (o.x < -50) obstacles.splice(i, 1);
+                    if (o.x < -50) {
+                        obstacles.splice(i, 1);
+                        score++;
+                        scoreEl.innerText = "SCORE: " + score;
+                    }
                 });
                 frame++;
             }
 
-            // Рисуем кубик (игрока)
+            // Кубик
             ctx.save();
-            ctx.translate(player.x + 20, player.y + 20);
+            ctx.translate(player.x + 18, player.y + 18);
             ctx.rotate(player.rot * Math.PI / 180);
-            ctx.fillStyle = '#0f0'; // Зеленый
-            ctx.fillRect(-20, -20, 40, 40);
-            ctx.strokeStyle = 'black';
-            ctx.lineWidth = 2;
-            ctx.strokeRect(-20, -20, 40, 40);
+            ctx.fillStyle = '#0f0';
+            ctx.fillRect(-18, -18, 36, 36);
+            ctx.strokeStyle = 'black'; ctx.lineWidth = 2;
+            ctx.strokeRect(-18, -18, 36, 36);
             ctx.restore();
 
             requestAnimationFrame(loop);
         }
 
-        // Управление
-        const jumpAction = () => {
-            if (player.y >= groundY - 45) player.vy = player.jump;
-        };
-        window.onclick = jumpAction;
-        window.ontouchstart = (e) => { e.preventDefault(); jumpAction(); };
+        const action = () => { if (player.y >= groundY - 45) player.vy = player.jump; };
+        window.onclick = action;
+        window.ontouchstart = (e) => { e.preventDefault(); action(); };
 
         loop();
     </script>
