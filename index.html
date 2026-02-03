@@ -3,328 +3,365 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Geometry Dash Ultimate</title>
+    <title>Geometry Dash Mega Mod</title>
     <style>
-        :root { --accent: #2ecc71; }
-        body, html { margin: 0; padding: 0; overflow: hidden; background: #000; font-family: 'Arial Black', sans-serif; user-select: none; }
+        :root { --primary: #2ecc71; --accent: #f1c40f; --bg: #000; }
+        body, html { margin: 0; padding: 0; overflow: hidden; background: var(--bg); font-family: 'Arial Black', sans-serif; user-select: none; }
         canvas { display: block; }
-        
-        /* Меню и интерфейс */
+
+        /* Интерфейс */
         #ui { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
-        #score-box { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); color: white; font-size: 40px; text-shadow: 4px 4px 0 rgba(0,0,0,0.5); }
+        .hud { position: absolute; top: 20px; width: 100%; display: flex; justify-content: space-between; padding: 0 20px; box-sizing: border-box; color: white; font-size: 24px; text-shadow: 2px 2px 0 #000; }
         
-        #overlay {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            background: rgba(0,0,0,0.8); z-index: 100; color: white; pointer-events: all;
+        /* Окна меню */
+        .modal { 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+            background: rgba(0,0,0,0.85); display: flex; flex-direction: column; 
+            align-items: center; justify-content: center; z-index: 100; color: white; 
+        }
+        .window { 
+            background: #1a1a1a; padding: 30px; border-radius: 20px; border: 4px solid #333; 
+            width: 85%; max-width: 350px; text-align: center; box-shadow: 0 0 30px rgba(0,0,0,1); 
         }
         
-        .window {
-            background: #1a1a1a; padding: 40px; border-radius: 20px; border: 4px solid #333;
-            text-align: center; box-shadow: 0 0 50px rgba(0,0,0,1); max-width: 320px;
+        h1 { font-size: 32px; margin: 0 0 20px; color: var(--primary); text-transform: uppercase; }
+        .btn { 
+            width: 100%; padding: 15px; margin: 10px 0; font-size: 22px; font-weight: bold;
+            background: var(--primary); color: white; border: none; border-radius: 12px; cursor: pointer;
+            box-shadow: 0 6px 0 #1a5e3a; transition: 0.1s; pointer-events: all;
         }
+        .btn:active { transform: translateY(3px); box-shadow: 0 3px 0 #1a5e3a; }
+        .btn-blue { background: #3498db; box-shadow: 0 6px 0 #21618c; }
+        .btn-blue:active { box-shadow: 0 3px 0 #21618c; }
+
+        /* Магазин */
+        .shop-tabs { display: flex; gap: 5px; margin-bottom: 15px; pointer-events: all; }
+        .tab { flex: 1; padding: 8px; font-size: 12px; background: #333; border-radius: 5px; cursor: pointer; }
+        .tab.active { background: var(--primary); }
         
-        h1 { font-size: 32px; margin: 0 0 20px; color: var(--accent); text-transform: uppercase; }
-        
-        .btn-main {
-            padding: 20px 60px; font-size: 30px; background: var(--accent);
-            color: white; border: none; border-radius: 15px; cursor: pointer;
-            box-shadow: 0 8px 0 #1a5e3a; transition: 0.1s;
+        .grid { 
+            display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; 
+            max-height: 250px; overflow-y: auto; padding-right: 5px; pointer-events: all;
         }
-        .btn-main:active { transform: translateY(4px); box-shadow: 0 4px 0 #1a5e3a; }
-        
-        .skin-label { margin-top: 30px; font-size: 14px; color: #888; text-transform: uppercase; }
-        .skin-list { display: flex; justify-content: center; gap: 15px; margin-top: 10px; }
-        .skin-item { 
-            width: 45px; height: 45px; border-radius: 8px; cursor: pointer; 
-            border: 3px solid transparent; transition: 0.2s; 
+        .item { 
+            background: #252525; padding: 10px; border-radius: 10px; border: 2px solid #444; 
+            display: flex; flex-direction: column; align-items: center; 
         }
-        .skin-item.active { border-color: white; transform: scale(1.1); box-shadow: 0 0 15px white; }
+        .item.owned { border-color: var(--primary); }
+        .item.active { background: #1e3a2a; border-color: #fff; }
+        .item-icon { width: 40px; height: 40px; margin-bottom: 5px; border: 1px solid #555; }
+        .price { color: var(--accent); font-size: 14px; margin-top: 5px; }
     </style>
 </head>
 <body>
 
     <div id="ui">
-        <div id="score-box">0</div>
-    </div>
-
-    <div id="overlay">
-        <div class="window">
-            <h1 id="status">Geometry Dash</h1>
-            <button class="btn-main" onclick="game.start()">PLAY</button>
-            
-            <div class="skin-label">Скины</div>
-            <div class="skin-list" id="skins">
-                <div class="skin-item active" style="background: #2ecc71" data-color="#2ecc71"></div>
-                <div class="skin-item" style="background: #e74c3c" data-color="#e74c3c"></div>
-                <div class="skin-item" style="background: #3498db" data-color="#3498db"></div>
-                <div class="skin-item" style="background: #f1c40f" data-color="#f1c40f"></div>
-                <div class="skin-item" style="background: #9b59b6" data-color="#9b59b6"></div>
-            </div>
+        <div class="hud">
+            <div>SCORE: <span id="cur-score">0</span></div>
+            <div style="color: #f1c40f;">💰 <span id="coins">0</span></div>
         </div>
     </div>
 
-    <canvas id="game"></canvas>
+    <div id="menu" class="modal">
+        <div class="window">
+            <h1 id="m-title">CYBER DASH</h1>
+            <button class="btn" onclick="game.start()">PLAY</button>
+            <button class="btn btn-blue" onclick="shop.open()">SHOP</button>
+            <div style="margin-top: 10px; font-size: 14px; color: #666;">BEST: <span id="best-score">0</span></div>
+        </div>
+    </div>
+
+    <div id="shop" class="modal" style="display: none;">
+        <div class="window">
+            <h1>MARKET</h1>
+            <div class="shop-tabs">
+                <div class="tab active" onclick="shop.setTab('color')">ЦВЕТ</div>
+                <div class="tab" onclick="shop.setTab('shape')">ФОРМА</div>
+                <div class="tab" onclick="shop.setTab('world')">МИР</div>
+            </div>
+            <div id="shop-grid" class="grid"></div>
+            <button class="btn" style="margin-top: 20px; background: #e74c3c; box-shadow: 0 6px 0 #922b21;" onclick="shop.close()">BACK</button>
+        </div>
+    </div>
+
+    <canvas id="canvas"></canvas>
 
     <script>
-        const canvas = document.getElementById('game');
+        const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
-        const scoreBox = document.getElementById('score-box');
-        const overlay = document.getElementById('overlay');
-        const statusH = document.getElementById('status');
-
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
 
+        // --- СОСТОЯНИЕ И ДАННЫЕ ---
+        let storage = {
+            coins: parseInt(localStorage.getItem('gd_coins')) || 0,
+            best: parseInt(localStorage.getItem('gd_best')) || 0,
+            owned: JSON.parse(localStorage.getItem('gd_owned')) || ['c_#2ecc71', 's_square', 'w_#0051a8'],
+            active: { color: '#2ecc71', shape: 'square', world: '#0051a8' }
+        };
+
+        const db = {
+            color: [
+                { id: 'c_#2ecc71', name: 'Зелень', p: 0, val: '#2ecc71' },
+                { id: 'c_#e74c3c', name: 'Пламя', p: 10, val: '#e74c3c' },
+                { id: 'c_#3498db', name: 'Океан', p: 15, val: '#3498db' },
+                { id: 'c_#f1c40f', name: 'Gold', p: 50, val: '#f1c40f' }
+            ],
+            shape: [
+                { id: 's_square', name: 'Куб', p: 0, val: 'square' },
+                { id: 's_eye', name: 'Глаз', p: 20, val: 'eye' },
+                { id: 's_smile', name: 'Смайл', p: 25, val: 'smile' },
+                { id: 's_alien', name: 'НЛО', p: 40, val: 'alien' }
+            ],
+            world: [
+                { id: 'w_#0051a8', name: 'Неон', p: 0, val: '#0051a8' },
+                { id: 'w_#3d0000', name: 'Ад', p: 30, val: '#3d0000' },
+                { id: 'w_#003d0c', name: 'Лес', p: 30, val: '#003d0c' }
+            ]
+        };
+
+        // --- МАГАЗИН ---
+        const shop = {
+            tab: 'color',
+            open() {
+                document.getElementById('menu').style.display = 'none';
+                document.getElementById('shop').style.display = 'flex';
+                this.render();
+            },
+            close() {
+                document.getElementById('shop').style.display = 'none';
+                document.getElementById('menu').style.display = 'flex';
+            },
+            setTab(t) {
+                this.tab = t;
+                document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
+                event.target.classList.add('active');
+                this.render();
+            },
+            render() {
+                const grid = document.getElementById('shop-grid');
+                grid.innerHTML = '';
+                db[this.tab].forEach(item => {
+                    const isOwned = storage.owned.includes(item.id);
+                    const isActive = storage.active[this.tab] === item.val;
+                    const div = document.createElement('div');
+                    div.className = `item ${isOwned ? 'owned' : ''} ${isActive ? 'active' : ''}`;
+                    div.innerHTML = `
+                        <div style="font-size:10px">${item.name}</div>
+                        <div class="item-icon" style="background:${this.tab==='color'?item.val:'#444'}"></div>
+                        <div class="price">${isOwned ? (isActive?'ВЫБРАНО':'ЕСТЬ') : '💰'+item.p}</div>
+                    `;
+                    div.onclick = () => this.buy(item);
+                    grid.appendChild(div);
+                });
+            },
+            buy(item) {
+                if (storage.owned.includes(item.id)) {
+                    storage.active[this.tab] = item.val;
+                } else if (storage.coins >= item.p) {
+                    storage.coins -= item.p;
+                    storage.owned.push(item.id);
+                    storage.active[this.tab] = item.val;
+                    this.save();
+                }
+                this.render();
+                ui.update();
+            },
+            save() {
+                localStorage.setItem('gd_coins', storage.coins);
+                localStorage.setItem('gd_owned', JSON.stringify(storage.owned));
+            }
+        };
+
+        // --- ИГРОВОЙ ДВИЖОК ---
         const game = {
             active: false,
             score: 0,
             frame: 0,
             speed: 8,
-            gravity: 0.9,
             groundY: canvas.height - 120,
-            playerColor: '#2ecc71',
-            
+            objs: [],
             particles: [],
-            obstacles: [],
-            platforms: [],
-
-            init() {
-                window.addEventListener('mousedown', () => this.jump());
-                window.addEventListener('touchstart', (e) => { e.preventDefault(); this.jump(); });
-                
-                document.querySelectorAll('.skin-item').forEach(item => {
-                    item.onclick = () => {
-                        this.playerColor = item.dataset.color;
-                        document.querySelectorAll('.skin-item').forEach(i => i.classList.remove('active'));
-                        item.classList.add('active');
-                    };
-                });
-                
-                this.loop();
-            },
-
+            
             start() {
                 this.active = true;
                 this.score = 0;
                 this.frame = 0;
                 this.speed = 8;
-                this.obstacles = [];
-                this.platforms = [];
+                this.objs = [];
                 this.particles = [];
                 player.reset();
-                overlay.style.display = 'none';
-                scoreBox.innerText = '0';
+                document.getElementById('menu').style.display = 'none';
+                ui.update();
             },
-
-            gameOver() {
+            
+            stop() {
                 this.active = false;
-                statusH.innerText = "Game Over";
-                overlay.style.display = 'flex';
-                // Взрыв при смерти
-                for(let i=0; i<15; i++) {
-                    this.particles.push(new Particle(player.x, player.y, this.playerColor));
+                if (this.score > storage.best) {
+                    storage.best = this.score;
+                    localStorage.setItem('gd_best', storage.best);
                 }
+                document.getElementById('m-title').innerText = "GAME OVER";
+                document.getElementById('menu').style.display = 'flex';
+                ui.update();
             },
 
-            jump() {
-                if (this.active && player.onGround) {
-                    player.vy = -16;
-                    player.onGround = false;
-                    // Частицы прыжка
-                    for(let i=0; i<5; i++) {
-                        this.particles.push(new Particle(player.x, player.y + 40, '#fff'));
-                    }
-                }
+            spawn() {
+                if (this.frame % 100 === 0) this.objs.push({ x: canvas.width, type: 'spike' });
+                if (this.frame % 180 === 0) this.objs.push({ x: canvas.width, y: this.groundY - 80 - Math.random()*80, type: 'coin' });
             },
 
-            loop() {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                this.drawBackground();
-                
-                if (this.active) {
-                    this.frame++;
-                    this.updateObjects();
-                }
-
-                this.drawObjects();
-                requestAnimationFrame(() => this.loop());
-            },
-
-            drawBackground() {
-                // Градиент фона
-                let grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
-                grad.addColorStop(0, '#0051a8');
-                grad.addColorStop(1, '#001a3d');
-                ctx.fillStyle = grad;
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-                // Пол
-                ctx.fillStyle = '#000b1a';
-                ctx.fillRect(0, this.groundY, canvas.width, canvas.height - this.groundY);
-                ctx.strokeStyle = '#3498db';
-                ctx.lineWidth = 4;
-                ctx.strokeRect(-10, this.groundY, canvas.width + 20, 4);
-            },
-
-            updateObjects() {
+            update() {
+                if (!this.active) return;
+                this.frame++;
                 player.update();
+                this.spawn();
 
-                // Спавн шипов
-                if (this.frame % 100 === 0) {
-                    this.obstacles.push({ x: canvas.width, type: 'spike' });
-                }
-
-                // Спавн платформ (интересная фишка)
-                if (this.frame % 250 === 0) {
-                    this.platforms.push({ x: canvas.width, y: this.groundY - 100, w: 150, h: 20 });
-                }
-
-                // Движение шипов
-                this.obstacles.forEach((o, i) => {
+                for (let i = this.objs.length - 1; i >= 0; i--) {
+                    let o = this.objs[i];
                     o.x -= this.speed;
-                    // Хитбокс
-                    if (player.x < o.x + 30 && player.x + 35 > o.x + 10 && player.y + 35 > this.groundY - 35) {
-                        this.gameOver();
+
+                    // Коллизии
+                    if (o.type === 'spike') {
+                        if (player.x + 32 > o.x + 10 && player.x + 8 < o.x + 30 && player.y + 35 > this.groundY - 35) {
+                            this.explode(player.x, player.y, storage.active.color);
+                            this.stop();
+                        }
+                    } else if (o.type === 'coin') {
+                        if (Math.hypot(player.x+20 - o.x, player.y+20 - o.y) < 35) {
+                            storage.coins++;
+                            this.objs.splice(i, 1);
+                            shop.save();
+                            ui.update();
+                            continue;
+                        }
                     }
+
                     if (o.x < -100) {
-                        this.obstacles.splice(i, 1);
-                        this.score++;
-                        scoreBox.innerText = this.score;
-                        this.speed += 0.05;
+                        if (o.type === 'spike') { this.score++; ui.update(); }
+                        this.objs.splice(i, 1);
                     }
-                });
+                }
 
-                // Движение платформ
-                this.platforms.forEach((p, i) => {
-                    p.x -= this.speed;
-                    // Коллизия с платформой (сверху)
-                    if (player.x + 40 > p.x && player.x < p.x + p.w && 
-                        player.y + 40 >= p.y && player.y + 40 <= p.y + 20 && player.vy >= 0) {
-                        player.y = p.y - 40;
-                        player.vy = 0;
-                        player.onGround = true;
-                    }
-                    if (p.x < -200) this.platforms.splice(i, 1);
-                });
-
-                // Частицы
                 this.particles.forEach((p, i) => {
-                    p.update();
-                    if (p.life <= 0) this.particles.splice(i, 1);
+                    p.x += p.vx; p.y += p.vy; p.a -= 0.02;
+                    if (p.a <= 0) this.particles.splice(i, 1);
                 });
+
+                this.speed += 0.001;
             },
 
-            drawObjects() {
-                // Шипы
-                this.obstacles.forEach(o => {
-                    ctx.fillStyle = '#333';
-                    ctx.beginPath();
-                    ctx.moveTo(o.x, this.groundY);
-                    ctx.lineTo(o.x + 20, this.groundY - 40);
-                    ctx.lineTo(o.x + 40, this.groundY);
-                    ctx.fill();
-                    ctx.strokeStyle = '#fff';
-                    ctx.lineWidth = 2;
-                    ctx.stroke();
+            explode(x, y, color) {
+                for(let i=0; i<15; i++) {
+                    this.particles.push({
+                        x: x+20, y: y+20, 
+                        vx: (Math.random()-0.5)*10, vy: (Math.random()-0.5)*10, 
+                        a: 1, c: color
+                    });
+                }
+            },
+
+            draw() {
+                // Фон
+                ctx.fillStyle = storage.active.world;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                // Пол
+                ctx.fillStyle = '#000';
+                ctx.fillRect(0, this.groundY, canvas.width, canvas.height);
+                ctx.strokeStyle = '#3498db'; ctx.lineWidth = 4;
+                ctx.strokeRect(-5, this.groundY, canvas.width+10, 5);
+
+                this.objs.forEach(o => {
+                    if (o.type === 'spike') {
+                        ctx.fillStyle = '#333'; ctx.beginPath();
+                        ctx.moveTo(o.x, this.groundY); ctx.lineTo(o.x+20, this.groundY-40); ctx.lineTo(o.x+40, this.groundY);
+                        ctx.fill(); ctx.strokeStyle="#fff"; ctx.lineWidth=2; ctx.stroke();
+                    } else {
+                        ctx.fillStyle = '#f1c40f'; ctx.beginPath();
+                        ctx.arc(o.x, o.y, 12, 0, Math.PI*2); ctx.fill();
+                        ctx.strokeStyle="#fff"; ctx.stroke();
+                    }
                 });
 
-                // Платформы
-                this.platforms.forEach(p => {
-                    ctx.fillStyle = '#222';
-                    ctx.fillRect(p.x, p.y, p.w, p.h);
-                    ctx.strokeStyle = '#3498db';
-                    ctx.strokeRect(p.x, p.y, p.w, p.h);
+                this.particles.forEach(p => {
+                    ctx.globalAlpha = p.a; ctx.fillStyle = p.c;
+                    ctx.fillRect(p.x, p.y, 6, 6);
                 });
-
-                // Частицы
-                this.particles.forEach(p => p.draw());
+                ctx.globalAlpha = 1;
 
                 player.draw();
             }
         };
 
         const player = {
-            x: 80, y: 0, vy: 0, rot: 0,
-            onGround: false,
-            trail: [],
-
-            reset() {
-                this.y = game.groundY - 40;
-                this.vy = 0;
-                this.rot = 0;
-                this.trail = [];
-            },
-
+            x: 80, y: 0, vy: 0, rot: 0, trail: [],
+            reset() { this.y = game.groundY - 40; this.vy = 0; this.rot = 0; this.trail = []; },
             update() {
-                this.vy += game.gravity;
-                this.y += this.vy;
+                this.vy += 0.85; this.y += this.vy;
+                if (this.y > game.groundY - 40) {
+                    this.y = game.groundY - 40; this.vy = 0; this.rot = 0;
+                } else { this.rot += 6; }
 
-                if (this.y >= game.groundY - 40) {
-                    this.y = game.groundY - 40;
-                    this.vy = 0;
-                    this.onGround = true;
-                    this.rot = 0;
-                } else {
-                    this.onGround = false;
-                    this.rot += 6;
-                }
-
-                // Эффект шлейфа
-                if (game.frame % 2 === 0) {
-                    this.trail.push({x: this.x, y: this.y, a: 0.6});
-                }
+                if (game.frame % 2 === 0) this.trail.push({x: this.x, y: this.y, a: 0.6});
                 this.trail.forEach((t, i) => {
-                    t.x -= game.speed;
-                    t.a -= 0.04;
+                    t.x -= game.speed; t.a -= 0.05;
                     if (t.a <= 0) this.trail.splice(i, 1);
                 });
             },
-
             draw() {
-                // Шлейф
                 this.trail.forEach(t => {
                     ctx.fillStyle = `rgba(255,255,255,${t.a})`;
-                    ctx.fillRect(t.x + 5, t.y + 5, 30, 30);
+                    ctx.fillRect(t.x+5, t.y+5, 30, 30);
                 });
 
                 ctx.save();
-                ctx.translate(this.x + 20, this.y + 20);
-                ctx.rotate(this.rot * Math.PI / 180);
-                ctx.fillStyle = game.playerColor;
+                ctx.translate(this.x+20, this.y+20);
+                ctx.rotate(this.rot * Math.PI/180);
+                ctx.fillStyle = storage.active.color;
                 ctx.fillRect(-20, -20, 40, 40);
-                ctx.strokeStyle = '#fff';
-                ctx.lineWidth = 3;
-                ctx.strokeRect(-20, -20, 40, 40);
-                // Глазки
+                ctx.strokeStyle = '#fff'; ctx.lineWidth = 3; ctx.strokeRect(-20, -20, 40, 40);
+                
+                // Отрисовка формы
                 ctx.fillStyle = '#000';
-                ctx.fillRect(5, -10, 6, 6); ctx.fillRect(-11, -10, 6, 6);
+                if (storage.active.shape === 'eye') {
+                    ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(0,0,10,0,Math.PI*2); ctx.fill();
+                    ctx.fillStyle='#000'; ctx.beginPath(); ctx.arc(0,0,4,0,Math.PI*2); ctx.fill();
+                } else if (storage.active.shape === 'smile') {
+                    ctx.fillRect(-10,-10,5,5); ctx.fillRect(5,-10,5,5);
+                    ctx.beginPath(); ctx.arc(0,5,8,0,Math.PI); ctx.stroke();
+                } else if (storage.active.shape === 'alien') {
+                    ctx.fillRect(-12,-5,24,10); ctx.fillStyle='#fff'; ctx.fillRect(-8,-2,4,4); ctx.fillRect(4,-2,4,4);
+                }
                 ctx.restore();
             }
         };
 
-        class Particle {
-            constructor(x, y, color) {
-                this.x = x + 20; this.y = y + 20;
-                this.color = color;
-                this.vx = (Math.random() - 0.5) * 10;
-                this.vy = (Math.random() - 0.5) * 10;
-                this.life = 1.0;
-                this.size = Math.random() * 8 + 2;
-            }
+        const ui = {
             update() {
-                this.x += this.vx; this.y += this.vy;
-                this.life -= 0.02;
+                document.getElementById('cur-score').innerText = game.score;
+                document.getElementById('coins').innerText = storage.coins;
+                document.getElementById('best-score').innerText = storage.best;
             }
-            draw() {
-                ctx.fillStyle = this.color;
-                ctx.globalAlpha = this.life;
-                ctx.fillRect(this.x, this.y, this.size, this.size);
-                ctx.globalAlpha = 1.0;
-            }
+        };
+
+        // --- УПРАВЛЕНИЕ ---
+        const handleAction = (e) => {
+            if (e) e.preventDefault();
+            if (game.active && player.y >= game.groundY - 42) player.vy = -14;
+        };
+
+        window.addEventListener('touchstart', handleAction, {passive: false});
+        window.addEventListener('mousedown', handleAction);
+
+        function mainLoop() {
+            game.update();
+            game.draw();
+            requestAnimationFrame(mainLoop);
         }
 
-        game.init();
+        ui.update();
+        mainLoop();
     </script>
 </body>
 </html>
