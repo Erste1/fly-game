@@ -2,85 +2,97 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 
-<title>Neon Dash Ultra</title>
+<title>Neon Dash Ultimate</title>
 
 <style>
 :root{
- --accent:#00ffae;
+ --accent:#00ffb3;
  --glass:rgba(255,255,255,.08);
 }
-
-*{box-sizing:border-box}
 
 body{
  margin:0;
  overflow:hidden;
- font-family:system-ui,-apple-system,BlinkMacSystemFont,sans-serif;
  background:#000;
+ font-family:system-ui;
  color:#fff;
 }
 
-/* ===== HUD ===== */
+canvas{display:block}
+
+/* HUD */
 #hud{
  position:fixed;
- top:10px;
+ top:12px;
  width:100%;
- padding:0 16px;
  display:flex;
  justify-content:space-between;
+ padding:0 16px;
  font-weight:700;
  z-index:5;
 }
 
+/* PROGRESS */
 #bar{
  position:fixed;
  bottom:0;
  left:0;
- height:6px;
+ height:5px;
  background:var(--accent);
  width:0%;
 }
 
-/* ===== MODERN MENU ===== */
+/* ===== MODAL ===== */
 .modal{
  position:fixed;
  inset:0;
  display:flex;
  justify-content:center;
  align-items:center;
- backdrop-filter:blur(14px);
- background:rgba(0,0,0,.65);
+ backdrop-filter:blur(16px);
+ background:rgba(0,0,0,.7);
+ z-index:20;
 }
 
 .card{
  width:90%;
  max-width:380px;
  background:var(--glass);
- border-radius:24px;
- padding:26px;
+ border-radius:22px;
+ padding:22px;
  text-align:center;
- border:1px solid rgba(255,255,255,.12);
- animation:pop .3s ease;
-}
-
-@keyframes pop{
- from{transform:scale(.9);opacity:0}
+ border:1px solid rgba(255,255,255,.15);
 }
 
 .btn{
  width:100%;
  padding:14px;
- margin:7px 0;
+ margin:6px 0;
  border:none;
- border-radius:16px;
- background:var(--accent);
+ border-radius:14px;
  font-weight:800;
- font-size:17px;
+ font-size:16px;
+ background:var(--accent);
+ color:#000;
 }
 
-canvas{display:block}
+.grid{
+ display:grid;
+ grid-template-columns:repeat(3,1fr);
+ gap:10px;
+ margin-top:10px;
+}
+
+.colorItem{
+ height:50px;
+ border-radius:12px;
+ border:3px solid #000;
+}
+.colorItem.active{
+ border:3px solid #fff;
+}
 </style>
 </head>
 
@@ -95,20 +107,25 @@ canvas{display:block}
 
 <div id="bar"></div>
 
+<!-- MENU -->
 <div id="menu" class="modal">
  <div class="card">
   <h2>NEON DASH</h2>
-  <button class="btn" onclick="Game.start()">PLAY</button>
+  <button class="btn" id="playBtn">PLAY</button>
+  <button class="btn" id="shopBtn">SHOP</button>
+ </div>
+</div>
+
+<!-- SHOP -->
+<div id="shop" class="modal" style="display:none">
+ <div class="card">
+  <h3>COLOR SHOP</h3>
+  <div id="colors" class="grid"></div>
+  <button class="btn" id="closeShop">BACK</button>
  </div>
 </div>
 
 <script>
-/* ===== TELEGRAM SAFE ===== */
-if(window.Telegram?.WebApp){
- Telegram.WebApp.expand();
- setTimeout(resize,200);
-}
-
 /* ===== CANVAS ===== */
 const canvas=c;
 const ctx=canvas.getContext("2d");
@@ -127,25 +144,32 @@ const S={
 };
 
 let coinsVal=S.load("coins",0);
+let activeColor=S.load("color","#00ffb3");
 
-/* ===== PARTICLES ===== */
-const Particles=[];
-function spawn(x,y){
- for(let i=0;i<12;i++){
-  Particles.push({
-   x,y,
-   vx:(Math.random()-0.5)*6,
-   vy:(Math.random()-0.5)*6,
-   life:30
-  });
- }
+/* ===== SHOP ===== */
+const COLORS=[
+ "#00ffb3","#e74c3c","#3498db","#f1c40f","#9b59b6","#ffffff"
+];
+
+function renderShop(){
+ colors.innerHTML="";
+ COLORS.forEach(col=>{
+  const d=document.createElement("div");
+  d.className="colorItem"+(col===activeColor?" active":"");
+  d.style.background=col;
+  d.onpointerdown=()=>{
+   activeColor=col;
+   S.set("color",col);
+   renderShop();
+  };
+  colors.appendChild(d);
+ });
 }
+renderShop();
 
 /* ===== PLAYER ===== */
 const Player={
- x:90,y:0,vy:0,
- rot:0,
- jumps:0,
+ x:80,y:0,vy:0,rot:0,jumps:0,
 
  reset(){
   this.y=Game.ground-40;
@@ -158,8 +182,6 @@ const Player={
   if(this.jumps<2){
    this.vy=-14;
    this.jumps++;
-   spawn(this.x,this.y+20);
-   navigator.vibrate?.(10);
   }
  },
 
@@ -172,8 +194,8 @@ const Player={
    this.vy=0;
    this.jumps=0;
 
-   /* 🔥 ЖЁСТКИЙ SNAP 90° */
-   this.rot = Math.round(this.rot/90)*90;
+   /* 🔥 РОВНО */
+   this.rot=Math.round(this.rot/90)*90;
   }else{
    this.rot+=10;
   }
@@ -183,13 +205,10 @@ const Player={
   ctx.save();
   ctx.translate(this.x+20,this.y+20);
   ctx.rotate(this.rot*Math.PI/180);
-
-  ctx.shadowColor="#00ffae";
-  ctx.shadowBlur=25;
-
-  ctx.fillStyle="#00ffae";
+  ctx.fillStyle=activeColor;
+  ctx.shadowColor=activeColor;
+  ctx.shadowBlur=20;
   ctx.fillRect(-20,-20,40,40);
-
   ctx.restore();
  }
 };
@@ -198,9 +217,9 @@ const Player={
 const Game={
  active:false,
  score:0,
- ground:0,
  speed:7,
- objs:[],
+ ground:0,
+ spikes:[],
  frame:0,
 
  start(){
@@ -208,13 +227,12 @@ const Game={
   this.active=true;
   this.score=0;
   this.speed=7;
-  this.objs=[];
+  this.spikes=[];
   Player.reset();
  },
 
  over(){
   this.active=false;
-  spawn(Player.x,Player.y);
   menu.style.display="flex";
  },
 
@@ -222,67 +240,55 @@ const Game={
   if(!this.active)return;
 
   this.frame++;
-
-  if(this.frame%80===0)
-   this.objs.push({x:canvas.width});
-
-  this.speed+=0.0007;
-
   Player.update();
 
-  for(let i=this.objs.length-1;i>=0;i--){
-   const o=this.objs[i];
-   o.x-=this.speed;
+  if(this.frame%80===0)
+   this.spikes.push({x:canvas.width});
 
-   if(Math.abs(o.x-Player.x)<30 && Player.y>this.ground-60){
+  for(let s of this.spikes) s.x-=this.speed;
+
+  this.spikes=this.spikes.filter(s=>{
+   if(Math.abs(s.x-Player.x)<30 && Player.y>this.ground-60)
     this.over();
-   }
 
-   if(o.x<-40){
+   if(s.x<-40){
     this.score++;
-    this.objs.splice(i,1);
+    return false;
    }
-  }
+   return true;
+  });
  },
 
  drawBG(){
   const g=ctx.createLinearGradient(0,0,0,canvas.height);
-  g.addColorStop(0,"#00121c");
+  g.addColorStop(0,"#00151d");
   g.addColorStop(1,"#000");
   ctx.fillStyle=g;
   ctx.fillRect(0,0,canvas.width,canvas.height);
-
-  ctx.strokeStyle="rgba(255,255,255,.05)";
-  for(let i=0;i<canvas.width;i+=40){
-   ctx.beginPath();
-   ctx.moveTo(i,0);
-   ctx.lineTo(i,canvas.height);
-   ctx.stroke();
-  }
  },
 
  draw(){
-  this.ground=canvas.height-110;
+  this.ground=canvas.height-120;
 
   this.drawBG();
 
   ctx.fillStyle="#111";
   ctx.fillRect(0,this.ground,canvas.width,200);
 
-  this.objs.forEach(o=>{
-   ctx.fillStyle="#222";
-   ctx.fillRect(o.x,this.ground-40,40,40);
+  /* 🔥 НЕОНОВЫЕ ШИПЫ */
+  ctx.fillStyle="#ff0055";
+  ctx.shadowColor="#ff0055";
+  ctx.shadowBlur=20;
+
+  this.spikes.forEach(s=>{
+   ctx.beginPath();
+   ctx.moveTo(s.x,this.ground);
+   ctx.lineTo(s.x+20,this.ground-40);
+   ctx.lineTo(s.x+40,this.ground);
+   ctx.fill();
   });
 
-  Particles.forEach((p,i)=>{
-   p.x+=p.vx;
-   p.y+=p.vy;
-   p.life--;
-   ctx.globalAlpha=p.life/30;
-   ctx.fillRect(p.x,p.y,3,3);
-   ctx.globalAlpha=1;
-   if(p.life<=0)Particles.splice(i,1);
-  });
+  ctx.shadowBlur=0;
 
   Player.draw();
  }
@@ -301,8 +307,13 @@ function loop(){
 }
 loop();
 
-/* ===== INPUT (МОБИЛЬНЫЙ ФИКС) ===== */
+/* ===== INPUT ===== */
 addEventListener("pointerdown",()=>Player.jump());
+
+/* ===== BUTTONS ===== */
+playBtn.onpointerdown=()=>Game.start();
+shopBtn.onpointerdown=()=>shop.style.display="flex";
+closeShop.onpointerdown=()=>shop.style.display="none";
 </script>
 </body>
 </html>
