@@ -1,350 +1,434 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>GD Ultimate Shop Edition</title>
-    <style>
-        :root { --p: #2ecc71; --a: #f1c40f; --b: #000; --blue: #3498db; }
-        body, html { margin: 0; padding: 0; overflow: hidden; background: #000; font-family: 'Arial Black', sans-serif; user-select: none; }
-        canvas { display: block; }
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
 
-        /* HUD */
-        #ui { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
-        .stats { position: absolute; top: 20px; width: 100%; display: flex; justify-content: space-between; padding: 0 20px; box-sizing: border-box; color: white; font-size: 22px; text-shadow: 2px 2px 0 #000; }
+<title>Neon Dash Mini App</title>
 
-        /* МЕНЮ */
-        .modal { 
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
-            background: rgba(0,0,0,0.9); display: flex; align-items: center; justify-content: center; z-index: 100; color: white; 
-            transition: opacity 0.3s;
-        }
-        .win { 
-            background: #1a1a1a; padding: 25px; border-radius: 25px; border: 5px solid #333; 
-            width: 85%; max-width: 380px; text-align: center; box-shadow: 0 0 40px rgba(0,0,0,1); 
-        }
-        
-        h1 { font-size: 28px; margin: 0 0 15px; color: var(--p); text-transform: uppercase; }
-        .ver { font-size: 10px; color: #555; margin-bottom: 10px; }
+<style>
+/* =========================
+   NEON GEOMETRY DASH STYLE
+   ========================= */
 
-        .btn { 
-            width: 100%; padding: 18px; margin: 8px 0; font-size: 20px; font-weight: bold;
-            background: var(--p); color: white; border: none; border-radius: 15px; cursor: pointer;
-            box-shadow: 0 6px 0 #1a5e3a; transition: 0.1s; pointer-events: all;
-        }
-        .btn:active { transform: translateY(3px); box-shadow: 0 3px 0 #1a5e3a; }
-        .btn-s { background: var(--blue); box-shadow: 0 6px 0 #21618c; }
+:root{
+    --green:#2ecc71;
+    --yellow:#f1c40f;
+    --blue:#3498db;
+    --red:#e74c3c;
+    --bg:#000;
+}
 
-        /* МАГАЗИН КРУТОЙ */
-        .tabs { display: flex; gap: 5px; margin-bottom: 15px; pointer-events: all; }
-        .tab { flex: 1; padding: 10px; font-size: 11px; background: #333; border-radius: 8px; cursor: pointer; border: 2px solid transparent; }
-        .tab.active { background: var(--p); border-color: #fff; }
-        
-        .items { 
-            display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; 
-            max-height: 280px; overflow-y: auto; padding: 10px; pointer-events: all;
-            background: #111; border-radius: 15px;
-        }
-        .it { 
-            background: #252525; padding: 12px; border-radius: 12px; border: 3px solid #444; 
-            display: flex; flex-direction: column; align-items: center; position: relative;
-        }
-        .it.owned { border-color: #555; }
-        .it.active { border-color: var(--p); background: #1e3a2a; }
-        .it-icon { width: 45px; height: 45px; margin-bottom: 8px; display: flex; align-items: center; justify-content: center; font-size: 24px; }
-        .it-name { font-size: 12px; color: #bbb; margin-bottom: 5px; }
-        .price { color: var(--a); font-size: 14px; font-weight: bold; }
+*{box-sizing:border-box}
 
-        /* СКРОЛЛБАР */
-        .items::-webkit-scrollbar { width: 5px; }
-        .items::-webkit-scrollbar-thumb { background: #444; border-radius: 10px; }
-    </style>
+body{
+    margin:0;
+    overflow:hidden;
+    background:#000;
+    font-family: "Arial Black", sans-serif;
+    user-select:none;
+}
+
+/* CANVAS */
+canvas{display:block}
+
+/* HUD */
+#hud{
+    position:fixed;
+    top:15px;
+    left:0;
+    width:100%;
+    display:flex;
+    justify-content:space-between;
+    padding:0 20px;
+    color:white;
+    font-size:20px;
+    text-shadow:0 0 6px #000;
+    z-index:5;
+}
+
+/* MODALS */
+.modal{
+    position:fixed;
+    inset:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:rgba(0,0,0,.9);
+    z-index:10;
+}
+
+.card{
+    width:92%;
+    max-width:380px;
+    background:#111;
+    border-radius:25px;
+    padding:25px;
+    border:4px solid #222;
+    box-shadow:0 0 30px #000;
+    text-align:center;
+    color:white;
+}
+
+/* BUTTON */
+.btn{
+    width:100%;
+    padding:16px;
+    margin:8px 0;
+    font-size:18px;
+    font-weight:bold;
+    border:none;
+    border-radius:14px;
+    background:var(--green);
+    color:white;
+    cursor:pointer;
+}
+
+.btn:active{transform:scale(.97)}
+
+.btn.red{background:var(--red)}
+.btn.blue{background:var(--blue)}
+
+/* SHOP */
+.grid{
+    display:grid;
+    grid-template-columns:repeat(2,1fr);
+    gap:10px;
+    max-height:260px;
+    overflow:auto;
+    margin-top:10px;
+}
+
+.item{
+    background:#222;
+    padding:10px;
+    border-radius:12px;
+    border:3px solid #333;
+    font-size:12px;
+    cursor:pointer;
+}
+
+.item.owned{border-color:#555}
+.item.active{border-color:var(--green);background:#173826}
+
+.tabs{
+    display:flex;
+    gap:5px;
+}
+
+.tab{
+    flex:1;
+    background:#333;
+    border-radius:8px;
+    padding:8px;
+    font-size:12px;
+    cursor:pointer;
+}
+
+.tab.active{background:var(--green)}
+</style>
 </head>
+
 <body>
 
-    <div id="ui">
-        <div class="stats">
-            <div>SCORE: <span id="score-val">0</span></div>
-            <div style="color: var(--a);">💰 <span id="coin-val">0</span></div>
-        </div>
+<canvas id="game"></canvas>
+
+<div id="hud">
+    <div>SCORE: <span id="score">0</span></div>
+    <div style="color:var(--yellow)">💰 <span id="coins">0</span></div>
+</div>
+
+<!-- MAIN -->
+<div id="menu" class="modal">
+    <div class="card">
+        <h2>NEON DASH</h2>
+        <button class="btn" onclick="Game.start()">PLAY</button>
+        <button class="btn blue" onclick="Shop.open()">SHOP</button>
+        <div style="margin-top:12px;color:#aaa">BEST: <span id="best">0</span></div>
     </div>
+</div>
 
-    <div id="m-main" class="modal">
-        <div class="win">
-            <div class="ver">V2.0 ULTIMATE</div>
-            <h1 id="m-title">CYBER DASH</h1>
-            <button class="btn" onclick="core.start()">PLAY</button>
-            <button class="btn btn-s" onclick="shop.open()">SHOP</button>
-            <div style="margin-top: 15px; font-size: 14px; color: #888;">BEST: <span id="best-val">0</span></div>
+<!-- SHOP -->
+<div id="shop" class="modal" style="display:none">
+    <div class="card">
+        <h3>SHOP</h3>
+
+        <div class="tabs">
+            <div class="tab active" onclick="Shop.set('color')">COLOR</div>
+            <div class="tab" onclick="Shop.set('shape')">SHAPE</div>
+            <div class="tab" onclick="Shop.set('world')">WORLD</div>
         </div>
+
+        <div id="items" class="grid"></div>
+
+        <button class="btn red" onclick="Shop.close()">EXIT</button>
     </div>
+</div>
 
-    <div id="m-shop" class="modal" style="display: none; opacity: 0; pointer-events: none;">
-        <div class="win">
-            <h1>MARKET</h1>
-            <div class="tabs">
-                <div id="t-color" class="tab active" onclick="shop.setTab('color')">ЦВЕТА</div>
-                <div id="t-shape" class="tab" onclick="shop.setTab('shape')">ФОРМЫ</div>
-                <div id="t-world" class="tab" onclick="shop.setTab('world')">МИРЫ</div>
-            </div>
-            <div id="shop-grid" class="items"></div>
-            <button class="btn" style="margin-top: 20px; background: #e74c3c; box-shadow: 0 6px 0 #922b21;" onclick="shop.close()">EXIT</button>
-        </div>
-    </div>
+<script>
+/* ======================================
+   TELEGRAM MINI APP READY
+====================================== */
+if(window.Telegram?.WebApp){
+    Telegram.WebApp.expand();
+}
 
-    <canvas id="canvas"></canvas>
+/* ======================================
+   CANVAS
+====================================== */
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
 
-    <script>
-        const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d');
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
+function resize(){
+    canvas.width = innerWidth;
+    canvas.height = innerHeight;
+}
+resize();
+addEventListener("resize", resize);
 
-        // --- ДАННЫЕ И СОХРАНЕНИЯ ---
-        let state = {
-            coins: parseInt(localStorage.getItem('gd_c')) || 0,
-            best: parseInt(localStorage.getItem('gd_b')) || 0,
-            owned: JSON.parse(localStorage.getItem('gd_o')) || ['c_#2ecc71', 's_square', 'w_#0051a8'],
-            active: { color: '#2ecc71', shape: 'square', world: '#0051a8' }
-        };
+/* ======================================
+   SAVE SYSTEM
+====================================== */
+const Save = {
+    load(key,def){ return JSON.parse(localStorage.getItem(key)) ?? def; },
+    set(key,val){ localStorage.setItem(key,JSON.stringify(val)); }
+};
 
-        const db = {
-            color: [
-                { id: 'c_#2ecc71', name: 'Emerald', p: 0, val: '#2ecc71' },
-                { id: 'c_#e74c3c', name: 'Ruby', p: 15, val: '#e74c3c' },
-                { id: 'c_#3498db', name: 'Sky', p: 20, val: '#3498db' },
-                { id: 'c_#f1c40f', name: 'Gold', p: 100, val: '#f1c40f' },
-                { id: 'c_#9b59b6', name: 'Void', p: 40, val: '#9b59b6' }
-            ],
-            shape: [
-                { id: 's_square', name: 'Classic', p: 0, val: 'square', icon: '■' },
-                { id: 's_eye', name: 'Seeker', p: 30, val: 'eye', icon: '👁' },
-                { id: 's_smile', name: 'Happy', p: 30, val: 'smile', icon: '☺' },
-                { id: 's_alien', name: 'UFO', p: 60, val: 'alien', icon: '🛸' }
-            ],
-            world: [
-                { id: 'w_#0051a8', name: 'Neon', p: 0, val: '#0051a8', icon: '🌌' },
-                { id: 'w_#3d0000', name: 'Hell', p: 50, val: '#3d0000', icon: '🔥' },
-                { id: 'w_#003d0c', name: 'Forest', p: 50, val: '#003d0c', icon: '🌲' },
-                { id: 'w_#333', name: 'Dark', p: 80, val: '#333', icon: '🌑' }
-            ]
-        };
+/* ======================================
+   STATE
+====================================== */
+const State = {
+    coins: Save.load("coins",0),
+    best: Save.load("best",0),
+    owned: Save.load("owned",["c0","s0","w0"]),
+    active:{color:"#2ecc71",shape:"square",world:"#001b2f"}
+};
 
-        // --- МАГАЗИН ---
-        const shop = {
-            tab: 'color',
-            open() {
-                const el = document.getElementById('m-shop');
-                el.style.display = 'flex';
-                setTimeout(() => { el.style.opacity = '1'; el.style.pointerEvents = 'all'; }, 10);
-                this.render();
-            },
-            close() {
-                const el = document.getElementById('m-shop');
-                el.style.opacity = '0'; el.style.pointerEvents = 'none';
-                setTimeout(() => { el.style.display = 'none'; }, 300);
-            },
-            setTab(t) {
-                this.tab = t;
-                document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
-                document.getElementById('t-' + t).classList.add('active');
-                this.render();
-            },
-            render() {
-                const grid = document.getElementById('shop-grid');
-                grid.innerHTML = '';
-                db[this.tab].forEach(item => {
-                    const isOwned = state.owned.includes(item.id);
-                    const isActive = state.active[this.tab] === item.val;
-                    const div = document.createElement('div');
-                    div.className = `it ${isOwned ? 'owned' : ''} ${isActive ? 'active' : ''}`;
-                    div.innerHTML = `
-                        <div class="it-name">${item.name}</div>
-                        <div class="it-icon" style="color:${this.tab==='color'?item.val:'#fff'}">${item.icon || '■'}</div>
-                        <div class="price">${isOwned ? (isActive?'ACTIVE':'USE') : '💰'+item.p}</div>
-                    `;
-                    div.onclick = () => this.buy(item);
-                    grid.appendChild(div);
-                });
-            },
-            buy(item) {
-                if (state.owned.includes(item.id)) {
-                    state.active[this.tab] = item.val;
-                } else if (state.coins >= item.p) {
-                    state.coins -= item.p;
-                    state.owned.push(item.id);
-                    state.active[this.tab] = item.val;
-                    localStorage.setItem('gd_c', state.coins);
-                    localStorage.setItem('gd_o', JSON.stringify(state.owned));
-                }
-                this.render();
-                ui.ref();
+/* ======================================
+   DATABASE SHOP
+====================================== */
+const DB={
+color:[
+ {id:"c0",val:"#2ecc71",p:0},
+ {id:"c1",val:"#e74c3c",p:15},
+ {id:"c2",val:"#f1c40f",p:30},
+ {id:"c3",val:"#3498db",p:50}
+],
+shape:[
+ {id:"s0",val:"square",p:0},
+ {id:"s1",val:"circle",p:25},
+ {id:"s2",val:"diamond",p:50}
+],
+world:[
+ {id:"w0",val:"#001b2f",p:0},
+ {id:"w1",val:"#2b0000",p:40},
+ {id:"w2",val:"#001b0d",p:40}
+]
+};
+
+/* ======================================
+   SHOP
+====================================== */
+const Shop={
+tab:"color",
+
+open(){ shop.style.display="flex"; this.render(); },
+close(){ shop.style.display="none"; },
+
+set(t){
+    this.tab=t;
+    document.querySelectorAll(".tab").forEach(e=>e.classList.remove("active"));
+    event.target.classList.add("active");
+    this.render();
+},
+
+render(){
+    items.innerHTML="";
+    DB[this.tab].forEach(it=>{
+        const owned = State.owned.includes(it.id);
+        const active = State.active[this.tab]===it.val;
+
+        const d=document.createElement("div");
+        d.className="item "+(owned?"owned ":"")+(active?"active":"");
+        d.innerHTML = owned?(active?"ACTIVE":"USE"):"💰 "+it.p;
+
+        d.onclick=()=>this.buy(it);
+        items.appendChild(d);
+    });
+},
+
+buy(it){
+    if(State.owned.includes(it.id)){
+        State.active[this.tab]=it.val;
+    }else if(State.coins>=it.p){
+        State.coins-=it.p;
+        State.owned.push(it.id);
+        State.active[this.tab]=it.val;
+        Save.set("owned",State.owned);
+    }
+    Save.set("coins",State.coins);
+    UI.refresh();
+    this.render();
+}
+};
+
+/* ======================================
+   PLAYER
+====================================== */
+const Player={
+x:80,y:0,vy:0,rot:0,
+
+reset(){ this.y=Game.ground-40; this.vy=0; this.rot=0; },
+
+jump(){ if(this.y>=Game.ground-42) this.vy=-14; },
+
+update(){
+    this.vy+=0.9;
+    this.y+=this.vy;
+
+    if(this.y>Game.ground-40){
+        this.y=Game.ground-40;
+        this.vy=0;
+    } else this.rot+=7;
+},
+
+draw(){
+    ctx.save();
+    ctx.translate(this.x+20,this.y+20);
+    ctx.rotate(this.rot*Math.PI/180);
+
+    ctx.fillStyle=State.active.color;
+
+    if(State.active.shape==="circle"){
+        ctx.beginPath();
+        ctx.arc(0,0,20,0,Math.PI*2);
+        ctx.fill();
+    }
+    else if(State.active.shape==="diamond"){
+        ctx.rotate(Math.PI/4);
+        ctx.fillRect(-18,-18,36,36);
+    }
+    else{
+        ctx.fillRect(-20,-20,40,40);
+    }
+
+    ctx.restore();
+}
+};
+
+/* ======================================
+   GAME ENGINE
+====================================== */
+const Game={
+active:false,
+ground:0,
+score:0,
+speed:7,
+objs:[],
+frame:0,
+
+start(){
+    menu.style.display="none";
+    this.active=true;
+    this.score=0;
+    this.speed=7;
+    this.frame=0;
+    this.objs=[];
+    Player.reset();
+},
+
+over(){
+    this.active=false;
+    if(this.score>State.best){
+        State.best=this.score;
+        Save.set("best",State.best);
+    }
+    menu.style.display="flex";
+    UI.refresh();
+},
+
+update(){
+    if(!this.active) return;
+
+    this.frame++;
+    Player.update();
+
+    if(this.frame%80===0) this.objs.push({x:canvas.width,type:"spike"});
+    if(this.frame%120===0) this.objs.push({x:canvas.width,y:this.ground-80-Math.random()*120,type:"coin"});
+
+    for(let i=this.objs.length-1;i>=0;i--){
+        const o=this.objs[i];
+        o.x-=this.speed;
+
+        if(o.type==="spike"){
+            if(Math.abs(o.x-Player.x)<30 && Player.y>this.ground-60) this.over();
+        }
+        else{
+            if(Math.hypot(o.x-Player.x, o.y-Player.y)<30){
+                State.coins++;
+                Save.set("coins",State.coins);
+                this.objs.splice(i,1);
+                continue;
             }
-        };
-
-        // --- ДВИЖОК ---
-        const core = {
-            active: false,
-            score: 0,
-            frame: 0,
-            speed: 8,
-            ground: canvas.height - 120,
-            objs: [],
-            pts: [],
-            
-            start() {
-                this.active = true; this.score = 0; this.frame = 0; this.speed = 8;
-                this.objs = []; this.pts = [];
-                player.reset();
-                document.getElementById('m-main').style.display = 'none';
-                ui.ref();
-            },
-            
-            over() {
-                this.active = false;
-                if (this.score > state.best) {
-                    state.best = this.score;
-                    localStorage.setItem('gd_b', state.best);
-                }
-                document.getElementById('m-title').innerText = "WASTED";
-                document.getElementById('m-main').style.display = 'flex';
-                ui.ref();
-            },
-
-            update() {
-                if (!this.active) return;
-                this.frame++;
-                player.upd();
-
-                // Спавн
-                if (this.frame % 90 === 0) this.objs.push({ x: canvas.width, type: 's' });
-                if (this.frame % 160 === 0) this.objs.push({ x: canvas.width, y: this.ground - 70 - Math.random()*90, type: 'c', r: 0 });
-
-                for (let i = this.objs.length - 1; i >= 0; i--) {
-                    let o = this.objs[i];
-                    o.x -= this.speed;
-
-                    if (o.type === 's') {
-                        if (player.x + 30 > o.x + 8 && player.x + 10 < o.x + 32 && player.y + 35 > this.ground - 35) {
-                            this.boom(player.x, player.y, state.active.color);
-                            this.over();
-                        }
-                    } else {
-                        o.r += 0.1; // вращение монетки
-                        if (Math.hypot(player.x+20 - o.x, player.y+20 - o.y) < 35) {
-                            state.coins++;
-                            this.objs.splice(i, 1);
-                            localStorage.setItem('gd_c', state.coins);
-                            ui.ref();
-                            continue;
-                        }
-                    }
-                    if (o.x < -100) {
-                        if (o.type === 's') { this.score++; this.speed += 0.05; ui.ref(); }
-                        this.objs.splice(i, 1);
-                    }
-                }
-
-                this.pts.forEach((p, i) => {
-                    p.x += p.vx; p.y += p.vy; p.a -= 0.02;
-                    if (p.a <= 0) this.pts.splice(i, 1);
-                });
-            },
-
-            boom(x, y, c) {
-                for(let i=0; i<20; i++) this.pts.push({x:x+20,y:y+20,vx:(Math.random()-0.5)*12,vy:(Math.random()-0.5)*12,a:1,c:c});
-            },
-
-            draw() {
-                // Background
-                ctx.fillStyle = state.active.world;
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-                
-                // Ground
-                ctx.fillStyle = '#111'; ctx.fillRect(0, this.ground, canvas.width, canvas.height);
-                ctx.strokeStyle = var(--blue); ctx.lineWidth = 4; ctx.strokeRect(-5, this.ground, canvas.width+10, 4);
-
-                this.objs.forEach(o => {
-                    if (o.type === 's') {
-                        ctx.fillStyle = '#222'; ctx.beginPath();
-                        ctx.moveTo(o.x, this.ground); ctx.lineTo(o.x+20, this.ground-40); ctx.lineTo(o.x+40, this.ground);
-                        ctx.fill(); ctx.strokeStyle="#fff"; ctx.lineWidth=2; ctx.stroke();
-                    } else {
-                        ctx.save(); ctx.translate(o.x, o.y); ctx.rotate(o.r);
-                        ctx.fillStyle = var(--a); ctx.beginPath(); ctx.arc(0, 0, 12, 0, Math.PI*2); ctx.fill();
-                        ctx.strokeStyle="#fff"; ctx.stroke(); ctx.restore();
-                    }
-                });
-
-                this.pts.forEach(p => {
-                    ctx.globalAlpha = p.a; ctx.fillStyle = p.c; ctx.fillRect(p.x, p.y, 5, 5);
-                });
-                ctx.globalAlpha = 1;
-                player.draw();
-            }
-        };
-
-        const player = {
-            x: 80, y: 0, vy: 0, rot: 0, trail: [],
-            reset() { this.y = core.ground - 40; this.vy = 0; this.rot = 0; this.trail = []; },
-            upd() {
-                this.vy += 0.85; this.y += this.vy;
-                if (this.y > core.ground - 40) { this.y = core.ground - 40; this.vy = 0; this.rot = 0; }
-                else { this.rot += 6; }
-
-                if (core.frame % 2 === 0) this.trail.push({x: this.x, y: this.y, a: 0.5});
-                this.trail.forEach((t, i) => {
-                    t.x -= core.speed; t.a -= 0.05;
-                    if (t.a <= 0) this.trail.splice(i, 1);
-                });
-            },
-            draw() {
-                this.trail.forEach(t => {
-                    ctx.fillStyle = `rgba(255,255,255,${t.a})`;
-                    ctx.fillRect(t.x+5, t.y+5, 30, 30);
-                });
-                ctx.save(); ctx.translate(this.x+20, this.y+20); ctx.rotate(this.rot * Math.PI/180);
-                ctx.fillStyle = state.active.color; ctx.fillRect(-20, -20, 40, 40);
-                ctx.strokeStyle = '#fff'; ctx.lineWidth = 3; ctx.strokeRect(-20, -20, 40, 40);
-                
-                ctx.fillStyle = '#000';
-                if (state.active.shape === 'eye') {
-                    ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(0,0,10,0,Math.PI*2); ctx.fill();
-                    ctx.fillStyle='#000'; ctx.beginPath(); ctx.arc(0,0,4,0,Math.PI*2); ctx.fill();
-                } else if (state.active.shape === 'smile') {
-                    ctx.fillRect(-8,-10,4,4); ctx.fillRect(4,-10,4,4);
-                    ctx.beginPath(); ctx.arc(0,5,8,0,Math.PI); ctx.stroke();
-                } else if (state.active.shape === 'alien') {
-                    ctx.fillRect(-15,-5,30,10); ctx.fillStyle='#fff'; ctx.fillRect(-8,-2,4,4); ctx.fillRect(4,-2,4,4);
-                }
-                ctx.restore();
-            }
-        };
-
-        const ui = {
-            ref() {
-                document.getElementById('score-val').innerText = core.score;
-                document.getElementById('coin-val').innerText = state.coins;
-                document.getElementById('best-val').innerText = state.best;
-            }
-        };
-
-        // --- INPUT ---
-        const act = (e) => {
-            if (e) e.preventDefault();
-            if (core.active && player.y >= core.ground - 42) player.vy = -14;
-        };
-        window.addEventListener('touchstart', act, {passive: false});
-        window.addEventListener('mousedown', act);
-
-        function tick() {
-            core.update();
-            core.draw();
-            requestAnimationFrame(tick);
         }
 
-        ui.ref();
-        tick();
-    </script>
+        if(o.x<-60){
+            if(o.type==="spike") this.score++;
+            this.objs.splice(i,1);
+        }
+    }
+},
+
+draw(){
+    ctx.fillStyle=State.active.world;
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+
+    this.ground=canvas.height-120;
+
+    ctx.fillStyle="#111";
+    ctx.fillRect(0,this.ground,canvas.width,200);
+
+    this.objs.forEach(o=>{
+        if(o.type==="spike"){
+            ctx.fillStyle="#222";
+            ctx.fillRect(o.x,this.ground-40,40,40);
+        }else{
+            ctx.fillStyle="#f1c40f";
+            ctx.beginPath();
+            ctx.arc(o.x,o.y,10,0,Math.PI*2);
+            ctx.fill();
+        }
+    });
+
+    Player.draw();
+}
+};
+
+/* ======================================
+   UI
+====================================== */
+const UI={
+refresh(){
+    score.textContent=Game.score;
+    coins.textContent=State.coins;
+    best.textContent=State.best;
+}
+};
+
+/* ======================================
+   LOOP
+====================================== */
+function loop(){
+    Game.update();
+    Game.draw();
+    UI.refresh();
+    requestAnimationFrame(loop);
+}
+loop();
+
+/* INPUT */
+addEventListener("mousedown",()=>Player.jump());
+addEventListener("touchstart",(e)=>{e.preventDefault();Player.jump();},{passive:false});
+</script>
 </body>
 </html>
