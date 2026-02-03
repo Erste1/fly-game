@@ -3,187 +3,109 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>GD Pro Mobile</title>
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <title>GD Ultra</title>
     <style>
-        :root { --accent: #2ecc71; }
-        body, html { margin: 0; padding: 0; overflow: hidden; background: #000; font-family: 'Segoe UI', sans-serif; }
+        body, html { margin: 0; padding: 0; overflow: hidden; background: #000; font-family: 'Arial Black', sans-serif; }
         canvas { display: block; }
-        #overlay {
+        #menu {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            background: rgba(0,0,0,0.85); z-index: 100; color: white;
+            background: rgba(0,0,0,0.8); z-index: 100; color: white;
         }
-        .menu-card { background: #111; padding: 30px; border-radius: 20px; border: 2px solid #333; text-align: center; width: 80%; max-width: 300px; }
-        h1 { margin: 0 0 20px; font-size: 28px; letter-spacing: 2px; }
         .btn { 
-            width: 100%; padding: 15px; margin: 10px 0; font-size: 20px; font-weight: bold;
-            background: var(--accent); color: white; border: none; border-radius: 10px; cursor: pointer;
+            padding: 20px 50px; font-size: 28px; background: #2ecc71; border: none; 
+            border-radius: 15px; color: white; cursor: pointer; box-shadow: 0 5px 0 #1a5e3a;
         }
-        .skin-select { display: flex; justify-content: center; gap: 10px; margin: 15px 0; }
-        .skin-dot { width: 30px; height: 30px; border-radius: 5px; cursor: pointer; border: 2px solid transparent; }
-        .skin-dot.active { border-color: white; transform: scale(1.2); }
-        #stats { position: absolute; top: 20px; left: 20px; color: white; font-size: 18px; z-index: 50; pointer-events: none; }
+        .skin-box { display: flex; gap: 10px; margin: 20px 0; }
+        .skin { width: 40px; height: 40px; border: 3px solid #fff; cursor: pointer; border-radius: 5px; }
+        #score { position: absolute; top: 20px; width: 100%; text-align: center; color: white; font-size: 30px; z-index: 50; }
     </style>
 </head>
 <body>
-    <div id="stats">SCORE: 0<br>BEST: <span id="best">0</span></div>
-    
-    <div id="overlay">
-        <div class="menu-card">
-            <h1 id="menu-title">GEOMETRY DASH</h1>
-            <div style="font-size: 14px; color: #888;">ВЫБЕРИ ЦВЕТ:</div>
-            <div class="skin-select" id="skins">
-                <div class="skin-dot active" style="background: #2ecc71" onclick="setSkin('#2ecc71', this)"></div>
-                <div class="skin-dot" style="background: #e74c3c" onclick="setSkin('#e74c3c', this)"></div>
-                <div class="skin-dot" style="background: #f1c40f" onclick="setSkin('#f1c40f', this)"></div>
-                <div class="skin-dot" style="background: #9b59b6" onclick="setSkin('#9b59b6', this)"></div>
-                <div class="skin-dot" style="background: #3498db" onclick="setSkin('#3498db', this)"></div>
-            </div>
-            <button class="btn" onclick="initGame()">ИГРАТЬ</button>
+    <div id="score">SCORE: 0</div>
+    <div id="menu">
+        <h1 id="title">GEOMETRY DASH</h1>
+        <div class="skin-box">
+            <div class="skin" style="background:#0f0" onclick="setSkin('#0f0')"></div>
+            <div class="skin" style="background:#f0f" onclick="setSkin('#f0f')"></div>
+            <div class="skin" style="background:#0ff" onclick="setSkin('#0ff')"></div>
+            <div class="skin" style="background:#ff0" onclick="setSkin('#ff0')"></div>
         </div>
+        <button class="btn" onclick="start()">START</button>
     </div>
-
-    <canvas id="game"></canvas>
+    <canvas id="g"></canvas>
 
     <script>
-        const canvas = document.getElementById('game');
+        const canvas = document.getElementById('g');
         const ctx = canvas.getContext('2d');
-        const overlay = document.getElementById('overlay');
-        const bestEl = document.getElementById('best');
-        
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
+        canvas.width = window.innerWidth; canvas.height = window.innerHeight;
 
-        let active = false, score = 0, frame = 0, speed = 7;
-        let bestScore = localStorage.getItem('gd_best') || 0;
-        bestEl.innerText = bestScore;
-
-        let playerColor = '#2ecc71';
-        const groundY = canvas.height - 100;
-        
-        const player = { x: 60, y: groundY - 40, w: 40, h: 40, vy: 0, rot: 0, trail: [] };
+        let active = false, score = 0, frame = 0, speed = 8;
+        let pColor = '#0f0';
+        const ground = canvas.height - 100;
+        const player = { x: 80, y: ground - 40, v: 0, rot: 0, trail: [] };
         let obstacles = [];
 
-        function setSkin(color, el) {
-            playerColor = color;
-            document.querySelectorAll('.skin-dot').forEach(d => d.classList.remove('active'));
-            el.classList.add('active');
+        function setSkin(c) { pColor = c; }
+
+        function start() {
+            obstacles = []; score = 0; frame = 0; speed = 8;
+            player.y = ground - 40; player.v = 0; player.trail = [];
+            document.getElementById('menu').style.display = 'none';
+            // Активируем игру не сразу, а через 100мс
+            setTimeout(() => { active = true; }, 100);
         }
 
-        function initGame() {
-            // Полный сброс перед началом
-            active = false;
-            score = 0;
-            frame = 0;
-            speed = 7;
-            obstacles = [];
-            player.y = groundY - 40;
-            player.vy = 0;
-            player.trail = [];
-            
-            document.getElementById('menu-title').innerText = "ПРИГОТОВЬСЯ...";
-            setTimeout(() => {
-                overlay.style.display = 'none';
-                active = true;
-            }, 800);
-        }
-
-        function drawPlayer() {
-            // Рисуем шлейф
-            player.trail.forEach((t, i) => {
-                ctx.fillStyle = playerColor + Math.floor(t.a * 255).toString(16).padStart(2, '0');
-                ctx.fillRect(t.x, t.y, player.w * t.s, player.h * t.s);
-                t.x -= speed; t.a -= 0.04; t.s -= 0.02;
-                if (t.a <= 0) player.trail.splice(i, 1);
-            });
-
-            ctx.save();
-            ctx.translate(player.x + 20, player.y + 20);
-            ctx.rotate(player.rot * Math.PI / 180);
-            ctx.fillStyle = playerColor;
-            ctx.fillRect(-20, -20, 40, 40);
-            ctx.strokeStyle = 'white';
-            ctx.lineWidth = 2;
-            ctx.strokeRect(-20, -20, 40, 40);
-            ctx.restore();
-        }
-
-        function update() {
-            ctx.fillStyle = '#0a0a0a'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.fillStyle = '#1a1a1a'; ctx.fillRect(0, groundY, canvas.width, 100);
-            ctx.strokeStyle = '#333'; ctx.beginPath(); ctx.moveTo(0, groundY); ctx.lineTo(canvas.width, groundY); ctx.stroke();
+        function draw() {
+            // Фон и пол
+            ctx.fillStyle = '#0072ff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#005bb5'; ctx.fillRect(0, ground, canvas.width, 100);
 
             if (active) {
                 frame++;
-                player.vy += 0.8;
-                player.y += player.vy;
+                player.v += 0.8; player.y += player.v;
+                if (player.y > ground - 40) { player.y = ground - 40; player.v = 0; player.rot = 0; }
+                else { player.rot += 7; }
 
-                if (player.y > groundY - 40) {
-                    player.y = groundY - 40;
-                    player.vy = 0;
-                    player.rot = 0;
-                } else {
-                    player.rot += 6;
-                }
+                // Партиклы (шлейф)
+                if (frame % 2 === 0) player.trail.push({x: player.x, y: player.y + 10, a: 1});
+                player.trail.forEach((t, i) => {
+                    t.x -= speed; t.a -= 0.05;
+                    if (t.a <= 0) player.trail.splice(i, 1);
+                    ctx.fillStyle = `rgba(255,255,255,${t.a})`;
+                    ctx.fillRect(t.x, t.y, 10, 10);
+                });
 
-                // Шлейф
-                if (frame % 3 === 0) player.trail.push({x: player.x, y: player.y, a: 0.6, s: 0.9});
-
-                // Спавн шипов
-                if (frame > 100 && frame % Math.max(60, 100 - Math.floor(score/2)) === 0) {
-                    obstacles.push({x: canvas.width, w: 40, h: 40});
-                }
+                // Спавн препятствий
+                if (frame % 90 === 0) obstacles.push({x: canvas.width});
 
                 obstacles.forEach((o, i) => {
                     o.x -= speed;
-                    
                     // Рисуем шип
-                    ctx.fillStyle = '#ff3e3e';
-                    ctx.beginPath();
-                    ctx.moveTo(o.x, groundY);
-                    ctx.lineTo(o.x + 20, groundY - 40);
-                    ctx.lineTo(o.x + 40, groundY);
-                    ctx.fill();
+                    ctx.fillStyle = '#333'; ctx.beginPath();
+                    ctx.moveTo(o.x, ground); ctx.lineTo(o.x + 20, ground - 40); ctx.lineTo(o.x + 40, ground); ctx.fill();
 
-                    // Коллизия (смерть)
-                    if (player.x + 30 > o.x + 5 && player.x + 10 < o.x + 35 && player.y + 35 > groundY - 35) {
-                        gameOver();
+                    // Коллизия (смерть) - ХИТБОКС УМЕНЬШЕН
+                    if (player.x + 30 > o.x + 5 && player.x + 10 < o.x + 35 && player.y + 35 > ground - 35) {
+                        active = false;
+                        document.getElementById('menu').style.display = 'flex';
+                        document.getElementById('title').innerText = "GAME OVER";
                     }
 
-                    if (o.x < -50) {
-                        obstacles.splice(i, 1);
-                        score++;
-                        if (score % 5 === 0) speed += 0.3; // Ускорение
-                        document.getElementById('stats').innerHTML = `SCORE: ${score}<br>BEST: ${bestScore}`;
-                    }
+                    if (o.x < -50) { obstacles.splice(i, 1); score++; speed += 0.1; }
                 });
+                document.getElementById('score').innerText = "SCORE: " + score;
             }
 
-            drawPlayer();
-            requestAnimationFrame(update);
+            // Игрок
+            ctx.save(); ctx.translate(player.x + 20, player.y + 20); ctx.rotate(player.rot * Math.PI/180);
+            ctx.fillStyle = pColor; ctx.fillRect(-20, -20, 40, 40); ctx.strokeStyle = '#fff'; ctx.strokeRect(-20, -20, 40, 40);
+            ctx.restore();
+            requestAnimationFrame(draw);
         }
 
-        function gameOver() {
-            active = false;
-            if (score > bestScore) {
-                bestScore = score;
-                localStorage.setItem('gd_best', bestScore);
-                bestEl.innerText = bestScore;
-            }
-            document.getElementById('menu-title').innerText = "GAME OVER!";
-            overlay.style.display = 'flex';
-        }
-
-        const jump = (e) => { 
-            if (e) e.preventDefault();
-            if (active && player.y >= groundY - 42) player.vy = -13; 
-        };
-        
-        window.addEventListener('touchstart', jump, {passive: false});
-        window.addEventListener('mousedown', jump);
-
-        update();
+        window.onclick = () => { if (active && player.y >= ground - 42) player.v = -13; };
+        draw();
     </script>
 </body>
 </html>
