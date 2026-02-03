@@ -9,7 +9,7 @@
 <style>
 :root{
  --accent:#00ffb3;
- --glass:rgba(255,255,255,.08);
+ --glass:rgba(255,255,255,.07);
 }
 
 body{
@@ -20,12 +20,14 @@ body{
  color:#fff;
 }
 
+/* canvas */
 canvas{display:block}
 
 /* HUD */
 #hud{
  position:fixed;
  top:12px;
+ left:0;
  width:100%;
  display:flex;
  justify-content:space-between;
@@ -34,8 +36,7 @@ canvas{display:block}
  z-index:5;
 }
 
-/* PROGRESS */
-#bar{
+#progress{
  position:fixed;
  bottom:0;
  left:0;
@@ -51,19 +52,18 @@ canvas{display:block}
  display:flex;
  justify-content:center;
  align-items:center;
- backdrop-filter:blur(16px);
+ backdrop-filter:blur(18px);
  background:rgba(0,0,0,.7);
  z-index:20;
 }
 
 .card{
- width:90%;
- max-width:380px;
+ width:92%;
+ max-width:420px;
  background:var(--glass);
  border-radius:22px;
  padding:22px;
- text-align:center;
- border:1px solid rgba(255,255,255,.15);
+ border:1px solid rgba(255,255,255,.1);
 }
 
 .btn{
@@ -73,26 +73,33 @@ canvas{display:block}
  border:none;
  border-radius:14px;
  font-weight:800;
- font-size:16px;
  background:var(--accent);
  color:#000;
 }
 
+/* SHOP */
+.tabs{display:flex;gap:6px;margin-bottom:8px}
+.tab{flex:1;padding:8px;background:#222;border-radius:10px;text-align:center}
+.tab.active{background:var(--accent);color:#000}
+
 .grid{
  display:grid;
  grid-template-columns:repeat(3,1fr);
- gap:10px;
- margin-top:10px;
+ gap:8px;
+ max-height:260px;
+ overflow:auto;
 }
 
-.colorItem{
- height:50px;
+.item{
+ height:60px;
  border-radius:12px;
- border:3px solid #000;
+ background:#222;
+ display:flex;
+ align-items:center;
+ justify-content:center;
+ font-size:22px;
 }
-.colorItem.active{
- border:3px solid #fff;
-}
+.item.active{outline:3px solid #fff}
 </style>
 </head>
 
@@ -105,7 +112,7 @@ canvas{display:block}
  <div>💰 <span id="coins">0</span></div>
 </div>
 
-<div id="bar"></div>
+<div id="progress"></div>
 
 <!-- MENU -->
 <div id="menu" class="modal">
@@ -119,14 +126,17 @@ canvas{display:block}
 <!-- SHOP -->
 <div id="shop" class="modal" style="display:none">
  <div class="card">
-  <h3>COLOR SHOP</h3>
-  <div id="colors" class="grid"></div>
+  <div class="tabs">
+   <div class="tab active" data-tab="color">Color</div>
+   <div class="tab" data-tab="shape">Shape</div>
+   <div class="tab" data-tab="bg">Background</div>
+  </div>
+  <div id="items" class="grid"></div>
   <button class="btn" id="closeShop">BACK</button>
  </div>
 </div>
 
 <script>
-/* ===== CANVAS ===== */
 const canvas=c;
 const ctx=canvas.getContext("2d");
 
@@ -137,50 +147,68 @@ function resize(){
 resize();
 addEventListener("resize",resize);
 
-/* ===== SAVE ===== */
-const S={
- load:(k,d)=>JSON.parse(localStorage.getItem(k))??d,
- set:(k,v)=>localStorage.setItem(k,JSON.stringify(v))
+/* SAVE */
+const S={l:(k,d)=>JSON.parse(localStorage.getItem(k))??d,s:(k,v)=>localStorage.setItem(k,JSON.stringify(v))};
+
+let coinsVal=S.l("coins",0);
+
+let state={
+ color:S.l("color","#00ffb3"),
+ shape:S.l("shape","square"),
+ bg:S.l("bg","#00151d")
 };
 
-let coinsVal=S.load("coins",0);
-let activeColor=S.load("color","#00ffb3");
+/* SHOP DB */
+const DB={
+ color:["#00ffb3","#e74c3c","#3498db","#f1c40f","#9b59b6","#ffffff"],
+ shape:["square","circle","diamond","triangle"],
+ bg:["#00151d","#2b0000","#001b0d","#1a0030"]
+};
 
-/* ===== SHOP ===== */
-const COLORS=[
- "#00ffb3","#e74c3c","#3498db","#f1c40f","#9b59b6","#ffffff"
-];
+/* SHOP */
+let tab="color";
 
 function renderShop(){
- colors.innerHTML="";
- COLORS.forEach(col=>{
+ items.innerHTML="";
+ DB[tab].forEach(v=>{
   const d=document.createElement("div");
-  d.className="colorItem"+(col===activeColor?" active":"");
-  d.style.background=col;
+  d.className="item"+(state[tab]===v?" active":"");
+  if(tab==="color"||tab==="bg") d.style.background=v;
+  else d.textContent=v[0].toUpperCase();
+
   d.onpointerdown=()=>{
-   activeColor=col;
-   S.set("color",col);
+   state[tab]=v;
+   S.s(tab,v);
    renderShop();
   };
-  colors.appendChild(d);
+  items.appendChild(d);
  });
 }
 renderShop();
 
-/* ===== PLAYER ===== */
+/* TABS */
+document.querySelectorAll(".tab").forEach(t=>{
+ t.onpointerdown=()=>{
+  document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
+  t.classList.add("active");
+  tab=t.dataset.tab;
+  renderShop();
+ };
+});
+
+/* PLAYER */
 const Player={
- x:80,y:0,vy:0,rot:0,jumps:0,
+ x:100,y:0,vy:0,rot:0,jumps:0,
 
  reset(){
   this.y=Game.ground-40;
   this.vy=0;
-  this.rot=0;
   this.jumps=0;
  },
 
  jump(){
   if(this.jumps<2){
-   this.vy=-14;
+   this.vy=-15;
    this.jumps++;
   }
  },
@@ -193,11 +221,9 @@ const Player={
    this.y=Game.ground-40;
    this.vy=0;
    this.jumps=0;
-
-   /* 🔥 РОВНО */
-   this.rot=Math.round(this.rot/90)*90;
+   this.rot=0;
   }else{
-   this.rot+=10;
+   this.rot+=8;
   }
  },
 
@@ -205,29 +231,42 @@ const Player={
   ctx.save();
   ctx.translate(this.x+20,this.y+20);
   ctx.rotate(this.rot*Math.PI/180);
-  ctx.fillStyle=activeColor;
-  ctx.shadowColor=activeColor;
+  ctx.fillStyle=state.color;
+  ctx.shadowColor=state.color;
   ctx.shadowBlur=20;
-  ctx.fillRect(-20,-20,40,40);
+
+  if(state.shape==="circle"){
+   ctx.beginPath(); ctx.arc(0,0,20,0,Math.PI*2); ctx.fill();
+  }
+  else if(state.shape==="diamond"){
+   ctx.rotate(Math.PI/4); ctx.fillRect(-18,-18,36,36);
+  }
+  else if(state.shape==="triangle"){
+   ctx.beginPath(); ctx.moveTo(0,-20); ctx.lineTo(20,20); ctx.lineTo(-20,20); ctx.fill();
+  }
+  else{
+   ctx.fillRect(-20,-20,40,40);
+  }
+
   ctx.restore();
  }
 };
 
-/* ===== GAME ===== */
+/* GAME */
 const Game={
  active:false,
- score:0,
- speed:7,
  ground:0,
- spikes:[],
+ objs:[],
+ score:0,
+ speed:6,
  frame:0,
 
  start(){
   menu.style.display="none";
   this.active=true;
   this.score=0;
-  this.speed=7;
-  this.spikes=[];
+  this.speed=6;
+  this.objs=[];
   Player.reset();
  },
 
@@ -242,16 +281,24 @@ const Game={
   this.frame++;
   Player.update();
 
-  if(this.frame%80===0)
-   this.spikes.push({x:canvas.width});
+  if(this.frame%70===0)
+   this.objs.push({x:canvas.width,type:Math.random()<.5?"spike":"plat",y:0});
 
-  for(let s of this.spikes) s.x-=this.speed;
+  for(let o of this.objs){
+   o.x-=this.speed;
+   if(o.type==="plat") o.y=this.ground-120;
+  }
 
-  this.spikes=this.spikes.filter(s=>{
-   if(Math.abs(s.x-Player.x)<30 && Player.y>this.ground-60)
-    this.over();
+  this.objs=this.objs.filter(o=>{
+   if(o.type==="spike"){
+    if(Math.abs(o.x-Player.x)<30 && Player.y>this.ground-60) this.over();
+   }
+   else{
+    if(Math.abs(o.x-Player.x)<40 && Player.y>o.y-40 && Player.y<o.y)
+      Player.y=o.y-40;
+   }
 
-   if(s.x<-40){
+   if(o.x<-60){
     this.score++;
     return false;
    }
@@ -259,33 +306,29 @@ const Game={
   });
  },
 
- drawBG(){
-  const g=ctx.createLinearGradient(0,0,0,canvas.height);
-  g.addColorStop(0,"#00151d");
-  g.addColorStop(1,"#000");
-  ctx.fillStyle=g;
-  ctx.fillRect(0,0,canvas.width,canvas.height);
- },
-
  draw(){
-  this.ground=canvas.height-120;
+  ctx.fillStyle=state.bg;
+  ctx.fillRect(0,0,canvas.width,canvas.height);
 
-  this.drawBG();
+  this.ground=canvas.height-100;
 
   ctx.fillStyle="#111";
   ctx.fillRect(0,this.ground,canvas.width,200);
 
-  /* 🔥 НЕОНОВЫЕ ШИПЫ */
-  ctx.fillStyle="#ff0055";
-  ctx.shadowColor="#ff0055";
   ctx.shadowBlur=20;
 
-  this.spikes.forEach(s=>{
-   ctx.beginPath();
-   ctx.moveTo(s.x,this.ground);
-   ctx.lineTo(s.x+20,this.ground-40);
-   ctx.lineTo(s.x+40,this.ground);
-   ctx.fill();
+  this.objs.forEach(o=>{
+   if(o.type==="spike"){
+    ctx.fillStyle="#ff0055";
+    ctx.beginPath();
+    ctx.moveTo(o.x,this.ground);
+    ctx.lineTo(o.x+20,this.ground-40);
+    ctx.lineTo(o.x+40,this.ground);
+    ctx.fill();
+   }else{
+    ctx.fillStyle="#00ffb3";
+    ctx.fillRect(o.x,o.y,80,10);
+   }
   });
 
   ctx.shadowBlur=0;
@@ -294,23 +337,21 @@ const Game={
  }
 };
 
-/* ===== LOOP ===== */
 function loop(){
  Game.update();
  Game.draw();
 
  score.textContent=Game.score;
  coins.textContent=coinsVal;
- bar.style.width=(Game.score%100)+"%";
+ progress.style.width=(Game.score%100)+"%";
 
  requestAnimationFrame(loop);
 }
 loop();
 
-/* ===== INPUT ===== */
+/* INPUT */
 addEventListener("pointerdown",()=>Player.jump());
 
-/* ===== BUTTONS ===== */
 playBtn.onpointerdown=()=>Game.start();
 shopBtn.onpointerdown=()=>shop.style.display="flex";
 closeShop.onpointerdown=()=>shop.style.display="none";
