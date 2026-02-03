@@ -2,37 +2,111 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Cyber-Fly</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Cyber-Fly Pro</title>
     <style>
-        body { margin: 0; background: #000; overflow: hidden; font-family: sans-serif; }
+        body { margin: 0; background: #050505; overflow: hidden; font-family: 'Courier New', monospace; touch-action: manipulation; }
         canvas { display: block; }
-        #s { position: absolute; top: 10px; left: 10px; color: #0ff; font-size: 24px; }
+        #ui { position: absolute; top: 20px; left: 20px; color: #0ff; font-size: 24px; text-shadow: 0 0 10px #0ff; pointer-events: none; }
+        /* Место под баннер */
+        #adv { position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 320px; height: 50px; background: rgba(0,255,255,0.1); border-top: 1px solid #0ff; display: flex; align-items: center; justify-content: center; color: #0ff; font-size: 10px; }
     </style>
 </head>
 <body>
-    <div id="s">SCORE: <span id="sc">0</span></div>
-    <canvas id="g"></canvas>
+    <div id="ui">SCORE: <span id="score">0</span></div>
+    
+    <div id="adv">РЕКЛАМНЫЙ БЛОК (YANDEX ADS)</div>
+
+    <canvas id="game"></canvas>
+
     <script>
-        const c=document.getElementById("g"), x=c.getContext("2d"), scEl=document.getElementById("sc");
-        c.width=window.innerWidth; c.height=window.innerHeight;
-        let p={y:c.height/2, v:0}, pipes=[], score=0, f=0;
+        const canvas = document.getElementById("game");
+        const ctx = canvas.getContext("2d");
+        const scoreEl = document.getElementById("score");
+
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        let bird = { x: 50, y: canvas.height/2, v: 0, size: 25 };
+        let pipes = [];
+        let score = 0;
+        let frames = 0;
+        let gameActive = true;
+
         function draw() {
-            x.fillStyle="black"; x.fillRect(0,0,c.width,c.height);
-            p.v+=0.5; p.y+=p.v;
-            x.fillStyle="#0ff"; x.fillRect(50, p.y, 30, 20);
-            if(f++%90===0) pipes.push({x:c.width, t:Math.random()*(c.height-200), pass:false});
-            pipes.forEach((s,i)=>{
-                s.x-=4; x.fillStyle="#f05";
-                x.fillRect(s.x, 0, 50, s.t);
-                x.fillRect(s.x, s.t+180, 50, c.height);
-                if(!s.pass && s.x<50){ s.pass=true; score++; scEl.innerText=score; }
-                if(s.x<-50) pipes.splice(i,1);
-                if(50+30>s.x && 50<s.x+50 && (p.y<s.t || p.y+20>s.t+180)) location.reload();
+            if (!gameActive) return;
+
+            // Фон
+            ctx.fillStyle = "#050505";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Дрон (игрок)
+            bird.v += 0.6;
+            bird.y += bird.v;
+            ctx.fillStyle = "#0ff";
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = "#0ff";
+            ctx.fillRect(bird.x, bird.y, bird.size, bird.size);
+            ctx.shadowBlur = 0;
+
+            // Препятствия (лазеры)
+            if (frames % 80 === 0) {
+                let gap = 180;
+                let topH = Math.random() * (canvas.height - gap - 100) + 50;
+                pipes.push({ x: canvas.width, t: topH, g: gap, passed: false });
+            }
+
+            pipes.forEach((p, i) => {
+                p.x -= 4;
+                ctx.fillStyle = "#f0f";
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = "#f0f";
+                // Верхний столб
+                ctx.fillRect(p.x, 0, 40, p.t);
+                // Нижний столб
+                ctx.fillRect(p.x, p.t + p.g, 40, canvas.height);
+                ctx.shadowBlur = 0;
+
+                // Проверка столкновения
+                if (bird.x + bird.size > p.x && bird.x < p.x + 40) {
+                    if (bird.y < p.t || bird.y + bird.size > p.t + p.g) {
+                        gameOver();
+                    }
+                }
+
+                // Очки
+                if (!p.passed && p.x < bird.x) {
+                    p.passed = true;
+                    score++;
+                    scoreEl.innerText = score;
+                }
+
+                if (p.x < -40) pipes.splice(i, 1);
             });
-            if(p.y>c.height || p.y<0) location.reload();
+
+            if (bird.y > canvas.height || bird.y < 0) gameOver();
+
+            frames++;
             requestAnimationFrame(draw);
         }
-        window.onclick=()=>p.v=-8;
+
+        function gameOver() {
+            gameActive = false;
+            setTimeout(() => {
+                bird.y = canvas.height/2;
+                bird.v = 0;
+                pipes = [];
+                score = 0;
+                scoreEl.innerText = score;
+                gameActive = true;
+                frames = 0;
+                draw();
+            }, 1000);
+        }
+
+        window.addEventListener("touchstart", () => { bird.v = -8; });
+        window.addEventListener("mousedown", () => { bird.v = -8; });
+
         draw();
     </script>
 </body>
