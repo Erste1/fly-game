@@ -1,56 +1,76 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Geometry Dash Classic</title>
+    <title>GD Telegram Mini App</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #222; font-family: sans-serif; }
-        canvas { display: block; background: #0072ff; } /* Классический синий фон */
-        #ui {
-            position: absolute; top: 10px; left: 10px;
-            color: white; font-size: 20px; font-weight: bold;
-            pointer-events: none; text-transform: uppercase;
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #0072ff;
+            font-family: 'Arial', sans-serif;
+            touch-action: manipulation;
+        }
+        canvas {
+            display: block;
+        }
+        #stats {
+            position: absolute;
+            top: 20px;
+            width: 100%;
+            text-align: center;
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow: 2px 2px 0px #000;
+            pointer-events: none;
         }
     </style>
 </head>
 <body>
-    <div id="ui">Attempt: 1</div>
+    <div id="stats">ATTEMPT 1</div>
     <canvas id="game"></canvas>
 
     <script>
         const canvas = document.getElementById('game');
         const ctx = canvas.getContext('2d');
-        const ui = document.getElementById('ui');
+        const stats = document.getElementById('stats');
 
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
 
-        let attempts = 1;
+        let attempt = 1;
         let gameActive = true;
-        const groundY = canvas.height - 100;
+        let frame = 0;
+        const groundHeight = 100;
 
         const player = {
-            x: 100,
-            y: groundY - 40,
+            x: 80,
+            y: 0,
             size: 40,
             vy: 0,
-            gravity: 0.9,
-            jumpPower: -13,
+            gravity: 0.8,
+            jumpPower: -12,
             rotation: 0,
             particles: []
         };
 
         let obstacles = [];
-        let frame = 0;
 
         class Particle {
             constructor(x, y) {
                 this.x = x;
                 this.y = y;
-                this.size = Math.random() * 10 + 5;
+                this.size = Math.random() * 8 + 4;
                 this.life = 1.0;
-                this.vX = -5; // Улетают назад
+                this.vx = -4 - Math.random() * 2;
+                this.vy = (Math.random() - 0.5) * 2;
+            }
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.life -= 0.04;
             }
             draw() {
                 ctx.fillStyle = `rgba(255, 255, 255, ${this.life})`;
@@ -58,125 +78,133 @@
             }
         }
 
-        function createObstacle() {
-            obstacles.push({
-                x: canvas.width + 50,
-                y: groundY,
-                w: 40,
-                h: 40
-            });
+        class Spike {
+            constructor() {
+                this.w = 40;
+                this.h = 45;
+                this.x = canvas.width + 50;
+                this.y = canvas.height - groundHeight;
+            }
+            update() {
+                this.x -= 7; // Скорость движения
+            }
+            draw() {
+                ctx.fillStyle = "#333";
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y);
+                ctx.lineTo(this.x + this.w / 2, this.y - this.h);
+                ctx.lineTo(this.x + this.w, this.y);
+                ctx.fill();
+                ctx.strokeStyle = "white";
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
         }
 
         function reset() {
-            attempts++;
-            ui.innerText = `Attempt: ${attempts}`;
+            attempt++;
+            stats.innerText = `ATTEMPT ${attempt}`;
             obstacles = [];
-            player.y = groundY - 40;
+            player.y = canvas.height - groundHeight - player.size;
             player.vy = 0;
             player.rotation = 0;
+            player.particles = [];
             gameActive = true;
+        }
+
+        function jump() {
+            if (player.y >= canvas.height - groundHeight - player.size - 2) {
+                player.vy = player.jumpPower;
+            }
         }
 
         function update() {
             if (!gameActive) return;
 
-            // Прыжок и гравитация
             player.vy += player.gravity;
             player.y += player.vy;
 
-            if (player.y >= groundY - player.size) {
-                player.y = groundY - player.size;
+            const floor = canvas.height - groundHeight - player.size;
+            if (player.y > floor) {
+                player.y = floor;
                 player.vy = 0;
                 player.rotation = 0;
             } else {
-                player.rotation += 6; // Крутится только в воздухе
+                player.rotation += 6;
             }
 
-            // Шлейф партиклов
+            // Шлейф
             if (frame % 2 === 0) {
                 player.particles.push(new Particle(player.x, player.y + player.size / 2));
             }
-
             player.particles.forEach((p, i) => {
-                p.x += p.vX;
-                p.life -= 0.05;
+                p.update();
                 if (p.life <= 0) player.particles.splice(i, 1);
             });
 
-            // Препятствия
-            if (frame % 80 === 0) createObstacle();
-
+            // Шипы
+            if (frame % 90 === 0) obstacles.push(new Spike());
             obstacles.forEach((obs, i) => {
-                obs.x -= 8; // Скорость игры
+                obs.update();
+                if (obs.x < -50) obstacles.splice(i, 1);
 
-                // Коллизия шипа (треугольника)
-                if (player.x + player.size > obs.x + 10 && 
-                    player.x < obs.x + obs.w - 10 && 
-                    player.y + player.size > obs.y - obs.h) {
+                // Коллизия
+                if (player.x + player.size - 8 > obs.x + 5 &&
+                    player.x + 8 < obs.x + obs.w - 5 &&
+                    player.y + player.size > obs.y - obs.h + 5) {
                     gameActive = false;
-                    setTimeout(reset, 500);
+                    setTimeout(reset, 400);
                 }
-
-                if (obs.x < -100) obstacles.splice(i, 1);
             });
 
             frame++;
         }
 
         function draw() {
-            // Фон
-            ctx.fillStyle = '#0072ff';
+            ctx.fillStyle = "#0072ff";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
             // Пол
-            ctx.fillStyle = '#0056c1';
-            ctx.fillRect(0, groundY, canvas.width, canvas.height - groundY);
-            ctx.strokeStyle = 'white';
+            ctx.fillStyle = "#0056c1";
+            ctx.fillRect(0, canvas.height - groundHeight, canvas.width, groundHeight);
+            ctx.strokeStyle = "white";
             ctx.lineWidth = 4;
-            ctx.strokeRect(-10, groundY, canvas.width + 20, 5);
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height - groundHeight);
+            ctx.lineTo(canvas.width, canvas.height - groundHeight);
+            ctx.stroke();
 
-            // Партиклы
+            // Эффекты
             player.particles.forEach(p => p.draw());
 
-            // Игрок (Куб)
+            // Игрок
             ctx.save();
-            ctx.translate(player.x + player.size/2, player.y + player.size/2);
+            ctx.translate(player.x + player.size / 2, player.y + player.size / 2);
             ctx.rotate(player.rotation * Math.PI / 180);
-            ctx.fillStyle = '#00ff00'; // Классический зеленый
-            ctx.fillRect(-player.size/2, -player.size/2, player.size, player.size);
-            ctx.strokeStyle = 'black';
+            ctx.fillStyle = "#00ff00";
+            ctx.fillRect(-player.size / 2, -player.size / 2, player.size, player.size);
+            ctx.strokeStyle = "black";
             ctx.lineWidth = 3;
-            ctx.strokeRect(-player.size/2, -player.size/2, player.size, player.size);
-            // Лицо кубика
-            ctx.fillStyle = 'black';
+            ctx.strokeRect(-player.size / 2, -player.size / 2, player.size, player.size);
+            
+            // Глаза кубика
+            ctx.fillStyle = "black";
             ctx.fillRect(-12, -12, 8, 8);
             ctx.fillRect(4, -12, 8, 8);
-            ctx.fillRect(-10, 5, 20, 4);
+            ctx.fillRect(-10, 8, 20, 3);
             ctx.restore();
 
-            // Шипы
-            obstacles.forEach(obs => {
-                ctx.fillStyle = '#333';
-                ctx.beginPath();
-                ctx.moveTo(obs.x, obs.y);
-                ctx.lineTo(obs.x + obs.w / 2, obs.y - obs.h);
-                ctx.lineTo(obs.x + obs.w, obs.y);
-                ctx.fill();
-                ctx.strokeStyle = 'white';
-                ctx.lineWidth = 2;
-                ctx.stroke();
-            });
+            obstacles.forEach(obs => obs.draw());
 
             update();
             requestAnimationFrame(draw);
         }
 
-        // Управление (клик или пробел)
-        const jumpAction = () => { if (player.y >= groundY - player.size) player.vy = player.jumpPower; };
-        window.addEventListener('mousedown', jumpAction);
-        window.addEventListener('touchstart', (e) => { e.preventDefault(); jumpAction(); });
-        window.addEventListener('keydown', (e) => { if (e.code === 'Space') jumpAction(); });
+        window.addEventListener('mousedown', jump);
+        window.addEventListener('touchstart', (e) => { e.preventDefault(); jump(); }, {passive: false});
+        window.addEventListener('keydown', (e) => { if(e.code === 'Space') jump(); });
 
+        player.y = canvas.height - groundHeight - player.size;
         draw();
     </script>
 </body>
