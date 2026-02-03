@@ -1,71 +1,189 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>GD FIX</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>GD Pro Mobile</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        body { margin: 0; overflow: hidden; background: #000; }
-        #m { position: absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); display:flex; justify-content:center; align-items:center; z-index:100; color:#fff; flex-direction:column; }
-        button { padding: 20px 40px; font-size: 25px; background: #2ecc71; color: #fff; border:none; border-radius:10px; }
+        :root { --accent: #2ecc71; }
+        body, html { margin: 0; padding: 0; overflow: hidden; background: #000; font-family: 'Segoe UI', sans-serif; }
+        canvas { display: block; }
+        #overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            background: rgba(0,0,0,0.85); z-index: 100; color: white;
+        }
+        .menu-card { background: #111; padding: 30px; border-radius: 20px; border: 2px solid #333; text-align: center; width: 80%; max-width: 300px; }
+        h1 { margin: 0 0 20px; font-size: 28px; letter-spacing: 2px; }
+        .btn { 
+            width: 100%; padding: 15px; margin: 10px 0; font-size: 20px; font-weight: bold;
+            background: var(--accent); color: white; border: none; border-radius: 10px; cursor: pointer;
+        }
+        .skin-select { display: flex; justify-content: center; gap: 10px; margin: 15px 0; }
+        .skin-dot { width: 30px; height: 30px; border-radius: 5px; cursor: pointer; border: 2px solid transparent; }
+        .skin-dot.active { border-color: white; transform: scale(1.2); }
+        #stats { position: absolute; top: 20px; left: 20px; color: white; font-size: 18px; z-index: 50; pointer-events: none; }
     </style>
 </head>
 <body>
-    <div id="m"><h1 id="h">ГОТОВ?</h1><button onclick="start()">ИГРАТЬ</button></div>
-    <canvas id="c"></canvas>
+    <div id="stats">SCORE: 0<br>BEST: <span id="best">0</span></div>
+    
+    <div id="overlay">
+        <div class="menu-card">
+            <h1 id="menu-title">GEOMETRY DASH</h1>
+            <div style="font-size: 14px; color: #888;">ВЫБЕРИ ЦВЕТ:</div>
+            <div class="skin-select" id="skins">
+                <div class="skin-dot active" style="background: #2ecc71" onclick="setSkin('#2ecc71', this)"></div>
+                <div class="skin-dot" style="background: #e74c3c" onclick="setSkin('#e74c3c', this)"></div>
+                <div class="skin-dot" style="background: #f1c40f" onclick="setSkin('#f1c40f', this)"></div>
+                <div class="skin-dot" style="background: #9b59b6" onclick="setSkin('#9b59b6', this)"></div>
+                <div class="skin-dot" style="background: #3498db" onclick="setSkin('#3498db', this)"></div>
+            </div>
+            <button class="btn" onclick="initGame()">ИГРАТЬ</button>
+        </div>
+    </div>
+
+    <canvas id="game"></canvas>
+
     <script>
-        const canvas = document.getElementById('c');
+        const canvas = document.getElementById('game');
         const ctx = canvas.getContext('2d');
-        canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+        const overlay = document.getElementById('overlay');
+        const bestEl = document.getElementById('best');
+        
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
 
-        let active = false;
-        let score = 0;
-        let time = 0;
-        let obs = [];
-        const floor = canvas.height - 100;
-        const p = { x: 50, y: floor - 40, v: 0 };
+        let active = false, score = 0, frame = 0, speed = 7;
+        let bestScore = localStorage.getItem('gd_best') || 0;
+        bestEl.innerText = bestScore;
 
-        function start() {
-            // Сброс всего
-            obs = []; time = 0; score = 0; p.v = 0; p.y = floor - 40;
-            document.getElementById('m').style.display = 'none';
-            // Активация только через полсекунды
-            setTimeout(() => { active = true; }, 500);
+        let playerColor = '#2ecc71';
+        const groundY = canvas.height - 100;
+        
+        const player = { x: 60, y: groundY - 40, w: 40, h: 40, vy: 0, rot: 0, trail: [] };
+        let obstacles = [];
+
+        function setSkin(color, el) {
+            playerColor = color;
+            document.querySelectorAll('.skin-dot').forEach(d => d.classList.remove('active'));
+            el.classList.add('active');
         }
 
-        function loop() {
-            ctx.fillStyle = '#0072ff'; ctx.fillRect(0,0,canvas.width, canvas.height);
-            ctx.fillStyle = '#005bb5'; ctx.fillRect(0, floor, canvas.width, 100);
+        function initGame() {
+            // Полный сброс перед началом
+            active = false;
+            score = 0;
+            frame = 0;
+            speed = 7;
+            obstacles = [];
+            player.y = groundY - 40;
+            player.vy = 0;
+            player.trail = [];
+            
+            document.getElementById('menu-title').innerText = "ПРИГОТОВЬСЯ...";
+            setTimeout(() => {
+                overlay.style.display = 'none';
+                active = true;
+            }, 800);
+        }
+
+        function drawPlayer() {
+            // Рисуем шлейф
+            player.trail.forEach((t, i) => {
+                ctx.fillStyle = playerColor + Math.floor(t.a * 255).toString(16).padStart(2, '0');
+                ctx.fillRect(t.x, t.y, player.w * t.s, player.h * t.s);
+                t.x -= speed; t.a -= 0.04; t.s -= 0.02;
+                if (t.a <= 0) player.trail.splice(i, 1);
+            });
+
+            ctx.save();
+            ctx.translate(player.x + 20, player.y + 20);
+            ctx.rotate(player.rot * Math.PI / 180);
+            ctx.fillStyle = playerColor;
+            ctx.fillRect(-20, -20, 40, 40);
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(-20, -20, 40, 40);
+            ctx.restore();
+        }
+
+        function update() {
+            ctx.fillStyle = '#0a0a0a'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#1a1a1a'; ctx.fillRect(0, groundY, canvas.width, 100);
+            ctx.strokeStyle = '#333'; ctx.beginPath(); ctx.moveTo(0, groundY); ctx.lineTo(canvas.width, groundY); ctx.stroke();
 
             if (active) {
-                time++;
-                p.v += 0.8; p.y += p.v;
-                if (p.y > floor - 40) { p.y = floor - 40; p.v = 0; }
+                frame++;
+                player.vy += 0.8;
+                player.y += player.vy;
 
-                // ШИПЫ ПОЯВЯТСЯ ТОЛЬКО ЧЕРЕЗ 5 СЕКУНД (300 кадров)
-                if (time > 300 && time % 120 === 0) {
-                    obs.push({ x: canvas.width });
+                if (player.y > groundY - 40) {
+                    player.y = groundY - 40;
+                    player.vy = 0;
+                    player.rot = 0;
+                } else {
+                    player.rot += 6;
                 }
 
-                for (let i = obs.length - 1; i >= 0; i--) {
-                    obs[i].x -= 7;
-                    ctx.fillStyle = 'red';
-                    ctx.beginPath(); ctx.moveTo(obs[i].x, floor); ctx.lineTo(obs[i].x+20, floor-40); ctx.lineTo(obs[i].x+40, floor); ctx.fill();
+                // Шлейф
+                if (frame % 3 === 0) player.trail.push({x: player.x, y: player.y, a: 0.6, s: 0.9});
 
-                    // Проверка смерти (супер-строгая)
-                    if (obs[i].x < 80 && obs[i].x > 20 && p.y > floor - 45) {
-                        active = false;
-                        document.getElementById('m').style.display = 'flex';
-                        document.getElementById('h').innerText = "GAME OVER";
+                // Спавн шипов
+                if (frame > 100 && frame % Math.max(60, 100 - Math.floor(score/2)) === 0) {
+                    obstacles.push({x: canvas.width, w: 40, h: 40});
+                }
+
+                obstacles.forEach((o, i) => {
+                    o.x -= speed;
+                    
+                    // Рисуем шип
+                    ctx.fillStyle = '#ff3e3e';
+                    ctx.beginPath();
+                    ctx.moveTo(o.x, groundY);
+                    ctx.lineTo(o.x + 20, groundY - 40);
+                    ctx.lineTo(o.x + 40, groundY);
+                    ctx.fill();
+
+                    // Коллизия (смерть)
+                    if (player.x + 30 > o.x + 5 && player.x + 10 < o.x + 35 && player.y + 35 > groundY - 35) {
+                        gameOver();
                     }
-                    if (obs[i].x < -50) obs.splice(i, 1);
-                }
+
+                    if (o.x < -50) {
+                        obstacles.splice(i, 1);
+                        score++;
+                        if (score % 5 === 0) speed += 0.3; // Ускорение
+                        document.getElementById('stats').innerHTML = `SCORE: ${score}<br>BEST: ${bestScore}`;
+                    }
+                });
             }
-            ctx.fillStyle = '#0f0'; ctx.fillRect(p.x, p.y, 40, 40);
-            requestAnimationFrame(loop);
+
+            drawPlayer();
+            requestAnimationFrame(update);
         }
-        window.onclick = () => { if (active && p.y >= floor - 41) p.v = -12; };
-        loop();
+
+        function gameOver() {
+            active = false;
+            if (score > bestScore) {
+                bestScore = score;
+                localStorage.setItem('gd_best', bestScore);
+                bestEl.innerText = bestScore;
+            }
+            document.getElementById('menu-title').innerText = "GAME OVER!";
+            overlay.style.display = 'flex';
+        }
+
+        const jump = (e) => { 
+            if (e) e.preventDefault();
+            if (active && player.y >= groundY - 42) player.vy = -13; 
+        };
+        
+        window.addEventListener('touchstart', jump, {passive: false});
+        window.addEventListener('mousedown', jump);
+
+        update();
     </script>
 </body>
 </html>
