@@ -1,40 +1,37 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no"/>
-<title>NEON DASH ULTIMATE</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+
+<title>Neon Dash Ultra</title>
 
 <style>
 :root{
- --g:#2ecc71;
- --y:#f1c40f;
- --b:#3498db;
- --r:#e74c3c;
+ --accent:#00ffae;
+ --glass:rgba(255,255,255,.08);
 }
+
+*{box-sizing:border-box}
 
 body{
  margin:0;
  overflow:hidden;
- font-family:Arial Black;
+ font-family:system-ui,-apple-system,BlinkMacSystemFont,sans-serif;
  background:#000;
+ color:#fff;
 }
 
-canvas{display:block}
-
-/* HUD */
+/* ===== HUD ===== */
 #hud{
  position:fixed;
- top:12px;
- left:0;
+ top:10px;
  width:100%;
+ padding:0 16px;
  display:flex;
  justify-content:space-between;
- padding:0 16px;
- color:#fff;
+ font-weight:700;
  z-index:5;
- font-size:18px;
- text-shadow:0 0 6px #000;
 }
 
 #bar{
@@ -42,35 +39,34 @@ canvas{display:block}
  bottom:0;
  left:0;
  height:6px;
- background:var(--g);
+ background:var(--accent);
  width:0%;
 }
 
-/* MODAL */
+/* ===== MODERN MENU ===== */
 .modal{
  position:fixed;
  inset:0;
  display:flex;
- align-items:center;
  justify-content:center;
- background:rgba(0,0,0,.92);
+ align-items:center;
+ backdrop-filter:blur(14px);
+ background:rgba(0,0,0,.65);
 }
 
 .card{
- width:92%;
+ width:90%;
  max-width:380px;
- padding:25px;
- border-radius:20px;
- background:#111;
- border:3px solid #222;
- color:#fff;
+ background:var(--glass);
+ border-radius:24px;
+ padding:26px;
  text-align:center;
- animation:pop .25s ease;
+ border:1px solid rgba(255,255,255,.12);
+ animation:pop .3s ease;
 }
 
 @keyframes pop{
- from{transform:scale(.7);opacity:0}
- to{transform:scale(1);opacity:1}
+ from{transform:scale(.9);opacity:0}
 }
 
 .btn{
@@ -78,32 +74,13 @@ canvas{display:block}
  padding:14px;
  margin:7px 0;
  border:none;
- border-radius:12px;
- font-weight:bold;
- background:var(--g);
- color:#fff;
+ border-radius:16px;
+ background:var(--accent);
+ font-weight:800;
+ font-size:17px;
 }
 
-.btn.blue{background:var(--b)}
-.btn.red{background:var(--r)}
-
-.grid{
- display:grid;
- grid-template-columns:repeat(3,1fr);
- gap:8px;
- max-height:260px;
- overflow:auto;
-}
-
-.item{
- padding:10px;
- border-radius:10px;
- border:2px solid #333;
- cursor:pointer;
- font-size:12px;
-}
-
-.item.active{border-color:#fff}
+canvas{display:block}
 </style>
 </head>
 
@@ -112,38 +89,27 @@ canvas{display:block}
 <canvas id="c"></canvas>
 
 <div id="hud">
- <div>🏆 <span id="score">0</span></div>
+ <div>SCORE <span id="score">0</span></div>
  <div>💰 <span id="coins">0</span></div>
- <div>LEVEL <span id="lvl">1</span></div>
 </div>
 
 <div id="bar"></div>
 
-<!-- MENU -->
 <div id="menu" class="modal">
  <div class="card">
-  <h2>NEON DASH ULTIMATE</h2>
+  <h2>NEON DASH</h2>
   <button class="btn" onclick="Game.start()">PLAY</button>
-  <button class="btn blue" onclick="Shop.open()">SHOP</button>
-  <button class="btn red" onclick="Music.toggle()">MUSIC</button>
-  <div style="margin-top:10px;color:#888">BEST: <span id="best">0</span></div>
- </div>
-</div>
-
-<!-- SHOP -->
-<div id="shop" class="modal" style="display:none">
- <div class="card">
-  <h3>SHOP</h3>
-  <div id="items" class="grid"></div>
-  <button class="btn red" onclick="Shop.close()">EXIT</button>
  </div>
 </div>
 
 <script>
-/* TELEGRAM */
-window.Telegram?.WebApp?.expand();
+/* ===== TELEGRAM SAFE ===== */
+if(window.Telegram?.WebApp){
+ Telegram.WebApp.expand();
+ setTimeout(resize,200);
+}
 
-/* CANVAS */
+/* ===== CANVAS ===== */
 const canvas=c;
 const ctx=canvas.getContext("2d");
 
@@ -154,80 +120,32 @@ function resize(){
 resize();
 addEventListener("resize",resize);
 
-/* SAVE */
+/* ===== SAVE ===== */
 const S={
  load:(k,d)=>JSON.parse(localStorage.getItem(k))??d,
  set:(k,v)=>localStorage.setItem(k,JSON.stringify(v))
 };
 
-/* STATE */
-const State={
- coins:S.load("coins",0),
- best:S.load("best",0),
- owned:S.load("owned",[0]),
- active:0
-};
+let coinsVal=S.load("coins",0);
 
-/* MUSIC */
-const Music={
- a:new Audio("https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8d2b2c3e1.mp3?filename=arcade-113078.mp3"),
- on:true,
- init(){this.a.loop=true;this.a.volume=.25;},
- toggle(){
-  this.on=!this.on;
-  if(this.on)this.a.play(); else this.a.pause();
- }
-};
-Music.init();
-
-/* SHOP */
-const DB=[
- {color:"#2ecc71",p:0},
- {color:"#e74c3c",p:20},
- {color:"#f1c40f",p:40},
- {color:"#3498db",p:60},
- {color:"#9b59b6",p:80},
- {color:"#ffffff",p:120}
-];
-
-const Shop={
- open(){shop.style.display="flex";this.render()},
- close(){shop.style.display="none"},
- render(){
-  items.innerHTML="";
-  DB.forEach((it,i)=>{
-   const d=document.createElement("div");
-   d.className="item"+(State.active===i?" active":"");
-   d.style.background=it.color;
-   d.innerHTML=State.owned.includes(i)?"USE":"💰"+it.p;
-   d.onclick=()=>this.buy(i);
-   items.appendChild(d);
+/* ===== PARTICLES ===== */
+const Particles=[];
+function spawn(x,y){
+ for(let i=0;i<12;i++){
+  Particles.push({
+   x,y,
+   vx:(Math.random()-0.5)*6,
+   vy:(Math.random()-0.5)*6,
+   life:30
   });
- },
- buy(i){
-  const it=DB[i];
-  if(State.owned.includes(i)) State.active=i;
-  else if(State.coins>=it.p){
-   State.coins-=it.p;
-   State.owned.push(i);
-   State.active=i;
-   S.set("owned",State.owned);
-  }
-  S.set("coins",State.coins);
-  this.render();
  }
-};
-
-/* PARTICLES */
-const P=[];
-function boom(x,y,c){
- for(let i=0;i<25;i++)
-  P.push({x,y,vx:(Math.random()-.5)*10,vy:(Math.random()-.5)*10,a:1,c});
 }
 
-/* PLAYER */
+/* ===== PLAYER ===== */
 const Player={
- x:80,y:0,vy:0,rot:0,jumps:0,
+ x:90,y:0,vy:0,
+ rot:0,
+ jumps:0,
 
  reset(){
   this.y=Game.ground-40;
@@ -238,13 +156,15 @@ const Player={
 
  jump(){
   if(this.jumps<2){
-   this.vy=-15;
+   this.vy=-14;
    this.jumps++;
+   spawn(this.x,this.y+20);
+   navigator.vibrate?.(10);
   }
  },
 
  update(){
-  this.vy+=0.85;
+  this.vy+=0.9;
   this.y+=this.vy;
 
   if(this.y>=Game.ground-40){
@@ -252,10 +172,10 @@ const Player={
    this.vy=0;
    this.jumps=0;
 
-   /* ровно */
-   this.rot=Math.round(this.rot/90)*90;
+   /* 🔥 ЖЁСТКИЙ SNAP 90° */
+   this.rot = Math.round(this.rot/90)*90;
   }else{
-   this.rot+=8;
+   this.rot+=10;
   }
  },
 
@@ -264,101 +184,75 @@ const Player={
   ctx.translate(this.x+20,this.y+20);
   ctx.rotate(this.rot*Math.PI/180);
 
-  const col=DB[State.active].color;
-  ctx.fillStyle=col;
-  ctx.shadowColor=col;
-  ctx.shadowBlur=20;
+  ctx.shadowColor="#00ffae";
+  ctx.shadowBlur=25;
+
+  ctx.fillStyle="#00ffae";
   ctx.fillRect(-20,-20,40,40);
 
   ctx.restore();
  }
 };
 
-/* GAME */
+/* ===== GAME ===== */
 const Game={
  active:false,
- objs:[],
  score:0,
- frame:0,
- speed:7,
- level:1,
  ground:0,
+ speed:7,
+ objs:[],
+ frame:0,
 
  start(){
   menu.style.display="none";
-  Music.on&&Music.a.play();
   this.active=true;
-  this.objs=[];
   this.score=0;
   this.speed=7;
-  this.level=1;
+  this.objs=[];
   Player.reset();
  },
 
  over(){
-  boom(Player.x,Player.y,DB[State.active].color);
-  Music.a.pause();
-
   this.active=false;
-  if(this.score>State.best){
-   State.best=this.score;
-   S.set("best",State.best);
-  }
-  setTimeout(()=>menu.style.display="flex",600);
+  spawn(Player.x,Player.y);
+  menu.style.display="flex";
  },
 
  update(){
   if(!this.active)return;
 
   this.frame++;
+
+  if(this.frame%80===0)
+   this.objs.push({x:canvas.width});
+
+  this.speed+=0.0007;
+
   Player.update();
 
-  /* уровни */
-  this.level=1+Math.floor(this.score/10);
-  this.speed=7+this.level*.7;
-
-  bar.style.width=(this.score%10)*10+"%";
-
-  if(this.frame%80===0) this.objs.push({x:canvas.width,type:"s"});
-  if(this.frame%110===0) this.objs.push({x:canvas.width,y:this.ground-90,type:"c",r:0});
-
   for(let i=this.objs.length-1;i>=0;i--){
-   let o=this.objs[i];
+   const o=this.objs[i];
    o.x-=this.speed;
 
-   if(o.type==="s"){
-    if(Math.abs(o.x-Player.x)<30 && Player.y>this.ground-60) this.over();
-   }else{
-    o.r+=.15;
-    if(Math.hypot(o.x-Player.x,o.y-Player.y)<28){
-     State.coins++;
-     S.set("coins",State.coins);
-     this.objs.splice(i,1);
-    }
+   if(Math.abs(o.x-Player.x)<30 && Player.y>this.ground-60){
+    this.over();
    }
 
-   if(o.x<-60){
-    if(o.type==="s") this.score++;
+   if(o.x<-40){
+    this.score++;
     this.objs.splice(i,1);
    }
-  }
-
-  /* частицы */
-  for(let i=P.length-1;i>=0;i--){
-   const p=P[i];
-   p.x+=p.vx; p.y+=p.vy; p.a-=.03;
-   if(p.a<=0)P.splice(i,1);
   }
  },
 
  drawBG(){
   const g=ctx.createLinearGradient(0,0,0,canvas.height);
-  g.addColorStop(0,"#001b2f");
+  g.addColorStop(0,"#00121c");
   g.addColorStop(1,"#000");
   ctx.fillStyle=g;
   ctx.fillRect(0,0,canvas.width,canvas.height);
 
-  ctx.strokeStyle="rgba(255,255,255,.04)";
+  ctx.strokeStyle="rgba(255,255,255,.05)";
   for(let i=0;i<canvas.width;i+=40){
    ctx.beginPath();
    ctx.moveTo(i,0);
@@ -368,7 +262,7 @@ const Game={
  },
 
  draw(){
-  this.ground=canvas.height-120;
+  this.ground=canvas.height-110;
 
   this.drawBG();
 
@@ -376,49 +270,39 @@ const Game={
   ctx.fillRect(0,this.ground,canvas.width,200);
 
   this.objs.forEach(o=>{
-   if(o.type==="s"){
-    ctx.fillStyle="#222";
-    ctx.fillRect(o.x,this.ground-40,40,40);
-   }else{
-    ctx.save();
-    ctx.translate(o.x,o.y);
-    ctx.rotate(o.r);
-    ctx.fillStyle="#f1c40f";
-    ctx.beginPath();
-    ctx.arc(0,0,12,0,Math.PI*2);
-    ctx.fill();
-    ctx.restore();
-   }
+   ctx.fillStyle="#222";
+   ctx.fillRect(o.x,this.ground-40,40,40);
   });
 
-  P.forEach(p=>{
-   ctx.globalAlpha=p.a;
-   ctx.fillStyle=p.c;
-   ctx.fillRect(p.x,p.y,4,4);
+  Particles.forEach((p,i)=>{
+   p.x+=p.vx;
+   p.y+=p.vy;
+   p.life--;
+   ctx.globalAlpha=p.life/30;
+   ctx.fillRect(p.x,p.y,3,3);
+   ctx.globalAlpha=1;
+   if(p.life<=0)Particles.splice(i,1);
   });
-  ctx.globalAlpha=1;
 
   Player.draw();
  }
 };
 
-/* LOOP */
+/* ===== LOOP ===== */
 function loop(){
  Game.update();
  Game.draw();
 
  score.textContent=Game.score;
- coins.textContent=State.coins;
- lvl.textContent=Game.level;
- best.textContent=State.best;
+ coins.textContent=coinsVal;
+ bar.style.width=(Game.score%100)+"%";
 
  requestAnimationFrame(loop);
 }
 loop();
 
-/* INPUT */
-addEventListener("mousedown",()=>Player.jump());
-addEventListener("touchstart",(e)=>{e.preventDefault();Player.jump();},{passive:false});
+/* ===== INPUT (МОБИЛЬНЫЙ ФИКС) ===== */
+addEventListener("pointerdown",()=>Player.jump());
 </script>
 </body>
 </html>
