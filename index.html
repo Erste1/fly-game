@@ -3,109 +3,328 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>GD Ultra</title>
+    <title>Geometry Dash Ultimate</title>
     <style>
-        body, html { margin: 0; padding: 0; overflow: hidden; background: #000; font-family: 'Arial Black', sans-serif; }
+        :root { --accent: #2ecc71; }
+        body, html { margin: 0; padding: 0; overflow: hidden; background: #000; font-family: 'Arial Black', sans-serif; user-select: none; }
         canvas { display: block; }
-        #menu {
+        
+        /* Меню и интерфейс */
+        #ui { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
+        #score-box { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); color: white; font-size: 40px; text-shadow: 4px 4px 0 rgba(0,0,0,0.5); }
+        
+        #overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            background: rgba(0,0,0,0.8); z-index: 100; color: white;
+            background: rgba(0,0,0,0.8); z-index: 100; color: white; pointer-events: all;
         }
-        .btn { 
-            padding: 20px 50px; font-size: 28px; background: #2ecc71; border: none; 
-            border-radius: 15px; color: white; cursor: pointer; box-shadow: 0 5px 0 #1a5e3a;
+        
+        .window {
+            background: #1a1a1a; padding: 40px; border-radius: 20px; border: 4px solid #333;
+            text-align: center; box-shadow: 0 0 50px rgba(0,0,0,1); max-width: 320px;
         }
-        .skin-box { display: flex; gap: 10px; margin: 20px 0; }
-        .skin { width: 40px; height: 40px; border: 3px solid #fff; cursor: pointer; border-radius: 5px; }
-        #score { position: absolute; top: 20px; width: 100%; text-align: center; color: white; font-size: 30px; z-index: 50; }
+        
+        h1 { font-size: 32px; margin: 0 0 20px; color: var(--accent); text-transform: uppercase; }
+        
+        .btn-main {
+            padding: 20px 60px; font-size: 30px; background: var(--accent);
+            color: white; border: none; border-radius: 15px; cursor: pointer;
+            box-shadow: 0 8px 0 #1a5e3a; transition: 0.1s;
+        }
+        .btn-main:active { transform: translateY(4px); box-shadow: 0 4px 0 #1a5e3a; }
+        
+        .skin-label { margin-top: 30px; font-size: 14px; color: #888; text-transform: uppercase; }
+        .skin-list { display: flex; justify-content: center; gap: 15px; margin-top: 10px; }
+        .skin-item { 
+            width: 45px; height: 45px; border-radius: 8px; cursor: pointer; 
+            border: 3px solid transparent; transition: 0.2s; 
+        }
+        .skin-item.active { border-color: white; transform: scale(1.1); box-shadow: 0 0 15px white; }
     </style>
 </head>
 <body>
-    <div id="score">SCORE: 0</div>
-    <div id="menu">
-        <h1 id="title">GEOMETRY DASH</h1>
-        <div class="skin-box">
-            <div class="skin" style="background:#0f0" onclick="setSkin('#0f0')"></div>
-            <div class="skin" style="background:#f0f" onclick="setSkin('#f0f')"></div>
-            <div class="skin" style="background:#0ff" onclick="setSkin('#0ff')"></div>
-            <div class="skin" style="background:#ff0" onclick="setSkin('#ff0')"></div>
-        </div>
-        <button class="btn" onclick="start()">START</button>
+
+    <div id="ui">
+        <div id="score-box">0</div>
     </div>
-    <canvas id="g"></canvas>
+
+    <div id="overlay">
+        <div class="window">
+            <h1 id="status">Geometry Dash</h1>
+            <button class="btn-main" onclick="game.start()">PLAY</button>
+            
+            <div class="skin-label">Скины</div>
+            <div class="skin-list" id="skins">
+                <div class="skin-item active" style="background: #2ecc71" data-color="#2ecc71"></div>
+                <div class="skin-item" style="background: #e74c3c" data-color="#e74c3c"></div>
+                <div class="skin-item" style="background: #3498db" data-color="#3498db"></div>
+                <div class="skin-item" style="background: #f1c40f" data-color="#f1c40f"></div>
+                <div class="skin-item" style="background: #9b59b6" data-color="#9b59b6"></div>
+            </div>
+        </div>
+    </div>
+
+    <canvas id="game"></canvas>
 
     <script>
-        const canvas = document.getElementById('g');
+        const canvas = document.getElementById('game');
         const ctx = canvas.getContext('2d');
-        canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+        const scoreBox = document.getElementById('score-box');
+        const overlay = document.getElementById('overlay');
+        const statusH = document.getElementById('status');
 
-        let active = false, score = 0, frame = 0, speed = 8;
-        let pColor = '#0f0';
-        const ground = canvas.height - 100;
-        const player = { x: 80, y: ground - 40, v: 0, rot: 0, trail: [] };
-        let obstacles = [];
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
 
-        function setSkin(c) { pColor = c; }
+        const game = {
+            active: false,
+            score: 0,
+            frame: 0,
+            speed: 8,
+            gravity: 0.9,
+            groundY: canvas.height - 120,
+            playerColor: '#2ecc71',
+            
+            particles: [],
+            obstacles: [],
+            platforms: [],
 
-        function start() {
-            obstacles = []; score = 0; frame = 0; speed = 8;
-            player.y = ground - 40; player.v = 0; player.trail = [];
-            document.getElementById('menu').style.display = 'none';
-            // Активируем игру не сразу, а через 100мс
-            setTimeout(() => { active = true; }, 100);
-        }
-
-        function draw() {
-            // Фон и пол
-            ctx.fillStyle = '#0072ff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.fillStyle = '#005bb5'; ctx.fillRect(0, ground, canvas.width, 100);
-
-            if (active) {
-                frame++;
-                player.v += 0.8; player.y += player.v;
-                if (player.y > ground - 40) { player.y = ground - 40; player.v = 0; player.rot = 0; }
-                else { player.rot += 7; }
-
-                // Партиклы (шлейф)
-                if (frame % 2 === 0) player.trail.push({x: player.x, y: player.y + 10, a: 1});
-                player.trail.forEach((t, i) => {
-                    t.x -= speed; t.a -= 0.05;
-                    if (t.a <= 0) player.trail.splice(i, 1);
-                    ctx.fillStyle = `rgba(255,255,255,${t.a})`;
-                    ctx.fillRect(t.x, t.y, 10, 10);
+            init() {
+                window.addEventListener('mousedown', () => this.jump());
+                window.addEventListener('touchstart', (e) => { e.preventDefault(); this.jump(); });
+                
+                document.querySelectorAll('.skin-item').forEach(item => {
+                    item.onclick = () => {
+                        this.playerColor = item.dataset.color;
+                        document.querySelectorAll('.skin-item').forEach(i => i.classList.remove('active'));
+                        item.classList.add('active');
+                    };
                 });
+                
+                this.loop();
+            },
 
-                // Спавн препятствий
-                if (frame % 90 === 0) obstacles.push({x: canvas.width});
+            start() {
+                this.active = true;
+                this.score = 0;
+                this.frame = 0;
+                this.speed = 8;
+                this.obstacles = [];
+                this.platforms = [];
+                this.particles = [];
+                player.reset();
+                overlay.style.display = 'none';
+                scoreBox.innerText = '0';
+            },
 
-                obstacles.forEach((o, i) => {
-                    o.x -= speed;
-                    // Рисуем шип
-                    ctx.fillStyle = '#333'; ctx.beginPath();
-                    ctx.moveTo(o.x, ground); ctx.lineTo(o.x + 20, ground - 40); ctx.lineTo(o.x + 40, ground); ctx.fill();
+            gameOver() {
+                this.active = false;
+                statusH.innerText = "Game Over";
+                overlay.style.display = 'flex';
+                // Взрыв при смерти
+                for(let i=0; i<15; i++) {
+                    this.particles.push(new Particle(player.x, player.y, this.playerColor));
+                }
+            },
 
-                    // Коллизия (смерть) - ХИТБОКС УМЕНЬШЕН
-                    if (player.x + 30 > o.x + 5 && player.x + 10 < o.x + 35 && player.y + 35 > ground - 35) {
-                        active = false;
-                        document.getElementById('menu').style.display = 'flex';
-                        document.getElementById('title').innerText = "GAME OVER";
+            jump() {
+                if (this.active && player.onGround) {
+                    player.vy = -16;
+                    player.onGround = false;
+                    // Частицы прыжка
+                    for(let i=0; i<5; i++) {
+                        this.particles.push(new Particle(player.x, player.y + 40, '#fff'));
                     }
+                }
+            },
 
-                    if (o.x < -50) { obstacles.splice(i, 1); score++; speed += 0.1; }
+            loop() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                this.drawBackground();
+                
+                if (this.active) {
+                    this.frame++;
+                    this.updateObjects();
+                }
+
+                this.drawObjects();
+                requestAnimationFrame(() => this.loop());
+            },
+
+            drawBackground() {
+                // Градиент фона
+                let grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+                grad.addColorStop(0, '#0051a8');
+                grad.addColorStop(1, '#001a3d');
+                ctx.fillStyle = grad;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                // Пол
+                ctx.fillStyle = '#000b1a';
+                ctx.fillRect(0, this.groundY, canvas.width, canvas.height - this.groundY);
+                ctx.strokeStyle = '#3498db';
+                ctx.lineWidth = 4;
+                ctx.strokeRect(-10, this.groundY, canvas.width + 20, 4);
+            },
+
+            updateObjects() {
+                player.update();
+
+                // Спавн шипов
+                if (this.frame % 100 === 0) {
+                    this.obstacles.push({ x: canvas.width, type: 'spike' });
+                }
+
+                // Спавн платформ (интересная фишка)
+                if (this.frame % 250 === 0) {
+                    this.platforms.push({ x: canvas.width, y: this.groundY - 100, w: 150, h: 20 });
+                }
+
+                // Движение шипов
+                this.obstacles.forEach((o, i) => {
+                    o.x -= this.speed;
+                    // Хитбокс
+                    if (player.x < o.x + 30 && player.x + 35 > o.x + 10 && player.y + 35 > this.groundY - 35) {
+                        this.gameOver();
+                    }
+                    if (o.x < -100) {
+                        this.obstacles.splice(i, 1);
+                        this.score++;
+                        scoreBox.innerText = this.score;
+                        this.speed += 0.05;
+                    }
                 });
-                document.getElementById('score').innerText = "SCORE: " + score;
-            }
 
-            // Игрок
-            ctx.save(); ctx.translate(player.x + 20, player.y + 20); ctx.rotate(player.rot * Math.PI/180);
-            ctx.fillStyle = pColor; ctx.fillRect(-20, -20, 40, 40); ctx.strokeStyle = '#fff'; ctx.strokeRect(-20, -20, 40, 40);
-            ctx.restore();
-            requestAnimationFrame(draw);
+                // Движение платформ
+                this.platforms.forEach((p, i) => {
+                    p.x -= this.speed;
+                    // Коллизия с платформой (сверху)
+                    if (player.x + 40 > p.x && player.x < p.x + p.w && 
+                        player.y + 40 >= p.y && player.y + 40 <= p.y + 20 && player.vy >= 0) {
+                        player.y = p.y - 40;
+                        player.vy = 0;
+                        player.onGround = true;
+                    }
+                    if (p.x < -200) this.platforms.splice(i, 1);
+                });
+
+                // Частицы
+                this.particles.forEach((p, i) => {
+                    p.update();
+                    if (p.life <= 0) this.particles.splice(i, 1);
+                });
+            },
+
+            drawObjects() {
+                // Шипы
+                this.obstacles.forEach(o => {
+                    ctx.fillStyle = '#333';
+                    ctx.beginPath();
+                    ctx.moveTo(o.x, this.groundY);
+                    ctx.lineTo(o.x + 20, this.groundY - 40);
+                    ctx.lineTo(o.x + 40, this.groundY);
+                    ctx.fill();
+                    ctx.strokeStyle = '#fff';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                });
+
+                // Платформы
+                this.platforms.forEach(p => {
+                    ctx.fillStyle = '#222';
+                    ctx.fillRect(p.x, p.y, p.w, p.h);
+                    ctx.strokeStyle = '#3498db';
+                    ctx.strokeRect(p.x, p.y, p.w, p.h);
+                });
+
+                // Частицы
+                this.particles.forEach(p => p.draw());
+
+                player.draw();
+            }
+        };
+
+        const player = {
+            x: 80, y: 0, vy: 0, rot: 0,
+            onGround: false,
+            trail: [],
+
+            reset() {
+                this.y = game.groundY - 40;
+                this.vy = 0;
+                this.rot = 0;
+                this.trail = [];
+            },
+
+            update() {
+                this.vy += game.gravity;
+                this.y += this.vy;
+
+                if (this.y >= game.groundY - 40) {
+                    this.y = game.groundY - 40;
+                    this.vy = 0;
+                    this.onGround = true;
+                    this.rot = 0;
+                } else {
+                    this.onGround = false;
+                    this.rot += 6;
+                }
+
+                // Эффект шлейфа
+                if (game.frame % 2 === 0) {
+                    this.trail.push({x: this.x, y: this.y, a: 0.6});
+                }
+                this.trail.forEach((t, i) => {
+                    t.x -= game.speed;
+                    t.a -= 0.04;
+                    if (t.a <= 0) this.trail.splice(i, 1);
+                });
+            },
+
+            draw() {
+                // Шлейф
+                this.trail.forEach(t => {
+                    ctx.fillStyle = `rgba(255,255,255,${t.a})`;
+                    ctx.fillRect(t.x + 5, t.y + 5, 30, 30);
+                });
+
+                ctx.save();
+                ctx.translate(this.x + 20, this.y + 20);
+                ctx.rotate(this.rot * Math.PI / 180);
+                ctx.fillStyle = game.playerColor;
+                ctx.fillRect(-20, -20, 40, 40);
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 3;
+                ctx.strokeRect(-20, -20, 40, 40);
+                // Глазки
+                ctx.fillStyle = '#000';
+                ctx.fillRect(5, -10, 6, 6); ctx.fillRect(-11, -10, 6, 6);
+                ctx.restore();
+            }
+        };
+
+        class Particle {
+            constructor(x, y, color) {
+                this.x = x + 20; this.y = y + 20;
+                this.color = color;
+                this.vx = (Math.random() - 0.5) * 10;
+                this.vy = (Math.random() - 0.5) * 10;
+                this.life = 1.0;
+                this.size = Math.random() * 8 + 2;
+            }
+            update() {
+                this.x += this.vx; this.y += this.vy;
+                this.life -= 0.02;
+            }
+            draw() {
+                ctx.fillStyle = this.color;
+                ctx.globalAlpha = this.life;
+                ctx.fillRect(this.x, this.y, this.size, this.size);
+                ctx.globalAlpha = 1.0;
+            }
         }
 
-        window.onclick = () => { if (active && player.y >= ground - 42) player.v = -13; };
-        draw();
+        game.init();
     </script>
 </body>
 </html>
