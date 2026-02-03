@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Cyber-Fly</title>
+    <style>
+        body { margin: 0; background: #000; overflow: hidden; font-family: sans-serif; }
+        canvas { display: block; }
+        #s { position: absolute; top: 10px; left: 10px; color: #0ff; font-size: 24px; }
+    </style>
+</head>
+<body>
+    <div id="s">SCORE: <span id="sc">0</span></div>
+    <canvas id="g"></canvas>
+    <script>
+        const c=document.getElementById("g"), x=c.getContext("2d"), scEl=document.getElementById("sc");
+        c.width=window.innerWidth; c.height=window.innerHeight;
+        let p={y:c.height/2, v:0}, pipes=[], score=0, f=0;
+        function draw() {
+            x.fillStyle="black"; x.fillRect(0,0,c.width,c.height);
+            p.v+=0.5; p.y+=p.v;
+            x.fillStyle="#0ff"; x.fillRect(50, p.y, 30, 20);
+            if(f++%90===0) pipes.push({x:c.width, t:Math.random()*(c.height-200), pass:false});
+            pipes.forEach((s,i)=>{
+                s.x-=4; x.fillStyle="#f05";
+                x.fillRect(s.x, 0, 50, s.t);
+                x.fillRect(s.x, s.t+180, 50, c.height);
+                if(!s.pass && s.x<50){ s.pass=true; score++; scEl.innerText=score; }
+                if(s.x<-50) pipes.splice(i,1);
+                if(50+30>s.x && 50<s.x+50 && (p.y<s.t || p.y+20>s.t+180)) location.reload();
+            });
+            if(p.y>c.height || p.y<0) location.reload();
+            requestAnimationFrame(draw);
+        }
+        window.onclick=()=>p.v=-8;
+        draw();
+    </script>
+</body>
+</html>
