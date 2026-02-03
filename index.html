@@ -1,360 +1,367 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
 
-<title>Neon Dash Ultimate</title> 
+<title>Neon Dash Pro</title>
 
 <style>
-:root{
- --accent:#00ffb3;
- --glass:rgba(255,255,255,.07);
-}
+*{margin:0;padding:0;box-sizing:border-box;font-family:system-ui}
+body{background:#0b0f14;color:#fff;overflow:hidden}
 
-body{
- margin:0;
- overflow:hidden;
- background:#000;
- font-family:system-ui;
- color:#fff;
-}
-
-/* canvas */
-canvas{display:block}
-
-/* HUD */
-#hud{
+canvas{
  position:fixed;
- top:12px;
- left:0;
- width:100%;
- display:flex;
- justify-content:space-between;
- padding:0 16px;
- font-weight:700;
- z-index:5;
+ inset:0;
+ width:100vw;
+ height:100vh;
 }
 
-#progress{
- position:fixed;
- bottom:0;
- left:0;
- height:5px;
- background:var(--accent);
- width:0%;
-}
-
-/* ===== MODAL ===== */
-.modal{
+.ui{
  position:fixed;
  inset:0;
  display:flex;
- justify-content:center;
- align-items:center;
- backdrop-filter:blur(18px);
- background:rgba(0,0,0,.7);
- z-index:20;
+ flex-direction:column;
+ justify-content:space-between;
+ padding:12px;
+ pointer-events:none;
 }
 
+.row{display:flex;gap:10px}
 .card{
- width:92%;
- max-width:420px;
- background:var(--glass);
- border-radius:22px;
- padding:22px;
- border:1px solid rgba(255,255,255,.1);
+ background:#111a22cc;
+ backdrop-filter:blur(10px);
+ border-radius:16px;
+ padding:10px 14px;
+ pointer-events:auto;
 }
 
-.btn{
- width:100%;
- padding:14px;
- margin:6px 0;
+button{
  border:none;
- border-radius:14px;
- font-weight:800;
- background:var(--accent);
- color:#000;
+ border-radius:12px;
+ padding:10px 14px;
+ background:#1d2b38;
+ color:#fff;
+ font-size:16px;
 }
 
-/* SHOP */
-.tabs{display:flex;gap:6px;margin-bottom:8px}
-.tab{flex:1;padding:8px;background:#222;border-radius:10px;text-align:center}
-.tab.active{background:var(--accent);color:#000}
+.shop{
+ position:fixed;
+ inset:0;
+ background:#0d1218;
+ display:none;
+ flex-direction:column;
+ padding:16px;
+ overflow:auto;
+ gap:12px;
+}
 
 .grid{
  display:grid;
- grid-template-columns:repeat(3,1fr);
- gap:8px;
- max-height:260px;
- overflow:auto;
+ grid-template-columns:repeat(4,1fr);
+ gap:10px;
 }
 
 .item{
  height:60px;
- border-radius:12px;
- background:#222;
+ border-radius:14px;
  display:flex;
  align-items:center;
  justify-content:center;
- font-size:22px;
+ font-weight:700;
+ font-size:14px;
+ background:#222;
 }
-.item.active{outline:3px solid #fff}
+
+.lock{opacity:.4}
+.active{outline:3px solid #00ffb3}
 </style>
 </head>
 
 <body>
 
-<canvas id="c"></canvas>
+<canvas id="game"></canvas>
 
-<div id="hud">
- <div>SCORE <span id="score">0</span></div>
- <div>💰 <span id="coins">0</span></div>
+<div class="ui">
+
+<div class="row">
+ <div class="card">💰 <span id="coins">0</span></div>
+ <div class="card">🏆 <span id="lvl">1</span></div>
 </div>
 
-<div id="progress"></div>
+<div class="row">
+ <button id="pauseBtn">⏸</button>
+ <button id="shopBtn">🛒</button>
+ <button id="rewardBtn">🎁</button>
+</div>
 
-<!-- MENU -->
-<div id="menu" class="modal">
- <div class="card">
-  <h2>NEON DASH</h2>
-  <button class="btn" id="playBtn">PLAY</button>
-  <button class="btn" id="shopBtn">SHOP</button>
+</div>
+
+<div class="shop" id="shop">
+ <button onclick="closeShop()">⬅ Назад</button>
+ <div class="row">
+  <button onclick="tab='color';renderShop()">Куб</button>
+  <button onclick="tab='shape';renderShop()">Форма</button>
+  <button onclick="tab='bg';renderShop()">Фон</button>
  </div>
+ <div class="grid" id="items"></div>
 </div>
 
-<!-- SHOP -->
-<div id="shop" class="modal" style="display:none">
- <div class="card">
-  <div class="tabs">
-   <div class="tab active" data-tab="color">Color</div>
-   <div class="tab" data-tab="shape">Shape</div>
-   <div class="tab" data-tab="bg">Background</div>
-  </div>
-  <div id="items" class="grid"></div>
-  <button class="btn" id="closeShop">BACK</button>
- </div>
-</div>
 
 <script>
-const canvas=c;
-const ctx=canvas.getContext("2d");
-
-function resize(){
- canvas.width=innerWidth;
- canvas.height=innerHeight;
+/* ======================
+   SAVE
+====================== */
+const S={
+ g:(k,d)=>JSON.parse(localStorage.getItem(k))??d,
+ s:(k,v)=>localStorage.setItem(k,JSON.stringify(v))
 }
-resize();
-addEventListener("resize",resize);
 
-/* SAVE */
-const S={l:(k,d)=>JSON.parse(localStorage.getItem(k))??d,s:(k,v)=>localStorage.setItem(k,JSON.stringify(v))};
-
-let coinsVal=S.l("coins",0);
-
+/* ======================
+   STATE
+====================== */
 let state={
- color:S.l("color","#00ffb3"),
- shape:S.l("shape","square"),
- bg:S.l("bg","#00151d")
-};
+ coins:S.g("coins",0),
+ owned:S.g("owned",["c0","s0","b0"]),
+ level:S.g("lvl",1),
+ active:{
+  color:S.g("color","#00ffb3"),
+  shape:S.g("shape","square"),
+  bg:S.g("bg","#00151d")
+ }
+}
 
-/* SHOP DB */
+/* ======================
+   SHOP DB
+====================== */
 const DB={
- color:["#00ffb3","#e74c3c","#3498db","#f1c40f","#9b59b6","#ffffff"],
- shape:["square","circle","diamond","triangle"],
- bg:["#00151d","#2b0000","#001b0d","#1a0030"]
-};
+color:[
+ {id:"c0",price:0,val:"#00ffb3"},
+ {id:"c1",price:20,val:"#ff5252"},
+ {id:"c2",price:40,val:"#4da3ff"},
+ {id:"c3",price:80,val:"#ffe066"},
+ {id:"c4",price:120,val:"#b084ff"}
+],
+shape:[
+ {id:"s0",price:0,val:"square"},
+ {id:"s1",price:60,val:"circle"},
+ {id:"s2",price:90,val:"diamond"},
+ {id:"s3",price:150,val:"triangle"}
+],
+bg:[
+ {id:"b0",price:0,val:"#00151d"},
+ {id:"b1",price:70,val:"#200000"},
+ {id:"b2",price:100,val:"#002013"},
+ {id:"b3",price:160,val:"#140025"}
+]
+}
 
-/* SHOP */
-let tab="color";
+/* ======================
+   SHOP
+====================== */
+let tab="color"
+const shop=document.getElementById("shop")
+const items=document.getElementById("items")
 
 function renderShop(){
- items.innerHTML="";
- DB[tab].forEach(v=>{
-  const d=document.createElement("div");
-  d.className="item"+(state[tab]===v?" active":"");
-  if(tab==="color"||tab==="bg") d.style.background=v;
-  else d.textContent=v[0].toUpperCase();
+ items.innerHTML=""
+ coins.innerText=state.coins
 
-  d.onpointerdown=()=>{
-   state[tab]=v;
-   S.s(tab,v);
-   renderShop();
-  };
-  items.appendChild(d);
- });
+ DB[tab].forEach(it=>{
+  const d=document.createElement("div")
+  d.className="item"
+
+  if(tab!=="shape") d.style.background=it.val
+  else d.textContent=it.val[0].toUpperCase()
+
+  const owned=state.owned.includes(it.id)
+
+  if(!owned){
+   d.classList.add("lock")
+   d.innerHTML="💰 "+it.price
+  }
+
+  if(state.active[tab]===it.val)
+   d.classList.add("active")
+
+  d.onclick=()=>{
+   if(!owned){
+    if(state.coins<it.price) return
+    state.coins-=it.price
+    state.owned.push(it.id)
+    S.s("coins",state.coins)
+    S.s("owned",state.owned)
+   }
+   state.active[tab]=it.val
+   S.s(tab,it.val)
+   renderShop()
+  }
+
+  items.appendChild(d)
+ })
 }
-renderShop();
 
-/* TABS */
-document.querySelectorAll(".tab").forEach(t=>{
- t.onpointerdown=()=>{
-  document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
-  t.classList.add("active");
-  tab=t.dataset.tab;
-  renderShop();
- };
-});
+function openShop(){shop.style.display="flex";renderShop()}
+function closeShop(){shop.style.display="none"}
 
-/* PLAYER */
-const Player={
- x:100,y:0,vy:0,rot:0,jumps:0,
+shopBtn.onclick=openShop
 
- reset(){
-  this.y=Game.ground-40;
-  this.vy=0;
-  this.jumps=0;
- },
 
- jump(){
-  if(this.jumps<2){
-   this.vy=-15;
-   this.jumps++;
-  }
- },
+/* ======================
+   DAILY REWARD + CHEST
+====================== */
+rewardBtn.onclick=()=>{
+ const today=Math.floor(Date.now()/86400000)
+ if(S.g("daily",0)==today)return alert("Сегодня уже получено")
+ S.s("daily",today)
+ const r=50+Math.floor(Math.random()*50)
+ state.coins+=r
+ S.s("coins",state.coins)
+ alert("Награда +"+r)
+}
 
- update(){
-  this.vy+=0.9;
-  this.y+=this.vy;
 
-  if(this.y>=Game.ground-40){
-   this.y=Game.ground-40;
-   this.vy=0;
-   this.jumps=0;
-   this.rot=0;
-  }else{
-   this.rot+=8;
-  }
- },
+/* ======================
+   GAME
+====================== */
+const c=game
+const ctx=c.getContext("2d")
+let W,H
 
- draw(){
-  ctx.save();
-  ctx.translate(this.x+20,this.y+20);
-  ctx.rotate(this.rot*Math.PI/180);
-  ctx.fillStyle=state.color;
-  ctx.shadowColor=state.color;
-  ctx.shadowBlur=20;
+function resize(){
+ W=c.width=innerWidth
+ H=c.height=innerHeight
+}
+resize()
+onresize=resize
 
-  if(state.shape==="circle"){
-   ctx.beginPath(); ctx.arc(0,0,20,0,Math.PI*2); ctx.fill();
-  }
-  else if(state.shape==="diamond"){
-   ctx.rotate(Math.PI/4); ctx.fillRect(-18,-18,36,36);
-  }
-  else if(state.shape==="triangle"){
-   ctx.beginPath(); ctx.moveTo(0,-20); ctx.lineTo(20,20); ctx.lineTo(-20,20); ctx.fill();
-  }
-  else{
-   ctx.fillRect(-20,-20,40,40);
-  }
 
-  ctx.restore();
+let player={
+ x:80,y:0,
+ vy:0,
+ size:26,
+ onGround:false
+}
+
+let gravity=0.7
+let speed=4+state.level
+let paused=false
+
+document.body.onpointerdown=()=>{
+ if(paused)return
+ if(player.onGround){
+  player.vy=-12
+  player.onGround=false
  }
-};
+}
 
-/* GAME */
-const Game={
- active:false,
- ground:0,
- objs:[],
- score:0,
- speed:6,
- frame:0,
+pauseBtn.onclick=()=>paused=!paused
 
- start(){
-  menu.style.display="none";
-  this.active=true;
-  this.score=0;
-  this.speed=6;
-  this.objs=[];
-  Player.reset();
- },
 
- over(){
-  this.active=false;
-  menu.style.display="flex";
- },
+/* ======================
+   LEVEL GEN
+====================== */
+let obstacles=[]
+let coinsArr=[]
+let portals=[]
 
- update(){
-  if(!this.active)return;
+function spawn(){
+ if(Math.random()<.02)
+  obstacles.push({x:W,y:H-40,w:30,h:30})
 
-  this.frame++;
-  Player.update();
+ if(Math.random()<.02)
+  coinsArr.push({x:W,y:H-120})
 
-  if(this.frame%70===0)
-   this.objs.push({x:canvas.width,type:Math.random()<.5?"spike":"plat",y:0});
+ if(Math.random()<.005)
+  portals.push({x:W,y:H-70})
+}
 
-  for(let o of this.objs){
-   o.x-=this.speed;
-   if(o.type==="plat") o.y=this.ground-120;
-  }
 
-  this.objs=this.objs.filter(o=>{
-   if(o.type==="spike"){
-    if(Math.abs(o.x-Player.x)<30 && Player.y>this.ground-60) this.over();
-   }
-   else{
-    if(Math.abs(o.x-Player.x)<40 && Player.y>o.y-40 && Player.y<o.y)
-      Player.y=o.y-40;
-   }
+/* ======================
+   DRAW PLAYER
+====================== */
+function drawPlayer(){
+ ctx.fillStyle=state.active.color
 
-   if(o.x<-60){
-    this.score++;
-    return false;
-   }
-   return true;
-  });
- },
-
- draw(){
-  ctx.fillStyle=state.bg;
-  ctx.fillRect(0,0,canvas.width,canvas.height);
-
-  this.ground=canvas.height-100;
-
-  ctx.fillStyle="#111";
-  ctx.fillRect(0,this.ground,canvas.width,200);
-
-  ctx.shadowBlur=20;
-
-  this.objs.forEach(o=>{
-   if(o.type==="spike"){
-    ctx.fillStyle="#ff0055";
-    ctx.beginPath();
-    ctx.moveTo(o.x,this.ground);
-    ctx.lineTo(o.x+20,this.ground-40);
-    ctx.lineTo(o.x+40,this.ground);
-    ctx.fill();
-   }else{
-    ctx.fillStyle="#00ffb3";
-    ctx.fillRect(o.x,o.y,80,10);
-   }
-  });
-
-  ctx.shadowBlur=0;
-
-  Player.draw();
+ if(state.active.shape==="circle"){
+  ctx.beginPath()
+  ctx.arc(player.x,player.y,player.size/2,0,7)
+  ctx.fill()
  }
-};
+ else{
+  ctx.fillRect(player.x-player.size/2,player.y-player.size/2,player.size,player.size)
+ }
+}
 
+
+/* ======================
+   LOOP
+====================== */
 function loop(){
- Game.update();
- Game.draw();
 
- score.textContent=Game.score;
- coins.textContent=coinsVal;
- progress.style.width=(Game.score%100)+"%";
+ if(!paused){
 
- requestAnimationFrame(loop);
+ spawn()
+
+ player.vy+=gravity
+ player.y+=player.vy
+
+ if(player.y>H-40){
+  player.y=H-40
+  player.vy=0
+  player.onGround=true
+ }
+
+ obstacles.forEach(o=>o.x-=speed)
+ coinsArr.forEach(o=>o.x-=speed)
+ portals.forEach(o=>o.x-=speed)
+
+ obstacles.forEach(o=>{
+  if(Math.abs(o.x-player.x)<25 && Math.abs(o.y-player.y)<25){
+   alert("Game Over")
+   location.reload()
+  }
+ })
+
+ coinsArr=coinsArr.filter(o=>{
+  if(Math.abs(o.x-player.x)<25 && Math.abs(o.y-player.y)<25){
+   state.coins++
+   S.s("coins",state.coins)
+   return false
+  }
+  return o.x>-20
+ })
+
+ portals=portals.filter(p=>{
+  if(Math.abs(p.x-player.x)<25){
+   gravity*=-1
+   return false
+  }
+  return p.x>-20
+ })
+ }
+
+ ctx.fillStyle=state.active.bg
+ ctx.fillRect(0,0,W,H)
+
+ ctx.fillStyle="#333"
+ ctx.fillRect(0,H-20,W,20)
+
+ drawPlayer()
+
+ ctx.fillStyle="red"
+ obstacles.forEach(o=>ctx.fillRect(o.x,o.y,o.w,o.h))
+
+ ctx.fillStyle="gold"
+ coinsArr.forEach(o=>ctx.fillRect(o.x,o.y,10,10))
+
+ ctx.fillStyle="cyan"
+ portals.forEach(p=>ctx.fillRect(p.x,p.y,12,40))
+
+ requestAnimationFrame(loop)
 }
-loop();
 
-/* INPUT */
-addEventListener("pointerdown",()=>Player.jump());
-
-playBtn.onpointerdown=()=>Game.start();
-shopBtn.onpointerdown=()=>shop.style.display="flex";
-closeShop.onpointerdown=()=>shop.style.display="none";
+loop()
 </script>
 </body>
 </html>
