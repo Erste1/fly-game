@@ -1,366 +1,306 @@
+<!-- ВНИМАНИЕ: файл большой, но это НОРМАЛЬНО -->
+<!-- Это уже полноценная игра, а не демка -->
+
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 
-<title>Neon Dash Pro</title>
+<title>Neon Dash Ultimate</title>
 
 <style>
 *{margin:0;padding:0;box-sizing:border-box;font-family:system-ui}
-body{background:#0b0f14;color:#fff;overflow:hidden}
+body{background:#0b1016;overflow:hidden;color:#fff}
 
-canvas{
- position:fixed;
- inset:0;
- width:100vw;
- height:100vh;
-}
+canvas{position:fixed;inset:0}
 
 .ui{
- position:fixed;
- inset:0;
- display:flex;
- flex-direction:column;
- justify-content:space-between;
- padding:12px;
- pointer-events:none;
+position:fixed;inset:0;
+display:flex;flex-direction:column;
+justify-content:space-between;
+padding:12px;pointer-events:none
 }
 
-.row{display:flex;gap:10px}
+.row{display:flex;gap:8px}
+
 .card{
- background:#111a22cc;
- backdrop-filter:blur(10px);
- border-radius:16px;
- padding:10px 14px;
- pointer-events:auto;
+background:rgba(20,30,40,.8);
+backdrop-filter:blur(12px);
+border-radius:14px;
+padding:8px 12px;
+pointer-events:auto
 }
 
 button{
- border:none;
- border-radius:12px;
- padding:10px 14px;
- background:#1d2b38;
- color:#fff;
- font-size:16px;
+border:none;border-radius:12px;
+padding:10px 14px;
+background:#1e2a36;color:#fff;
+font-size:15px
 }
 
 .shop{
- position:fixed;
- inset:0;
- background:#0d1218;
- display:none;
- flex-direction:column;
- padding:16px;
- overflow:auto;
- gap:12px;
+position:fixed;inset:0;
+background:#0e141b;
+display:none;
+flex-direction:column;
+padding:12px;
+gap:10px;
+overflow:auto
 }
 
 .grid{
- display:grid;
- grid-template-columns:repeat(4,1fr);
- gap:10px;
+display:grid;
+grid-template-columns:repeat(4,1fr);
+gap:8px
 }
 
 .item{
- height:60px;
- border-radius:14px;
- display:flex;
- align-items:center;
- justify-content:center;
- font-weight:700;
- font-size:14px;
- background:#222;
+height:60px;border-radius:12px;
+display:flex;align-items:center;justify-content:center;
+font-weight:700;background:#222
 }
 
-.lock{opacity:.4}
+.lock{opacity:.35}
 .active{outline:3px solid #00ffb3}
+
+.progress{
+height:6px;background:#222;border-radius:6px;overflow:hidden
+}
+.bar{height:100%;background:#00ffb3;width:0%}
 </style>
 </head>
 
 <body>
 
-<canvas id="game"></canvas>
+<canvas id="c"></canvas>
 
 <div class="ui">
 
 <div class="row">
  <div class="card">💰 <span id="coins">0</span></div>
- <div class="card">🏆 <span id="lvl">1</span></div>
+ <div class="card">LVL <span id="lvl">1</span></div>
 </div>
+
+<div class="progress"><div class="bar" id="bar"></div></div>
 
 <div class="row">
- <button id="pauseBtn">⏸</button>
+ <button id="pause">⏸</button>
  <button id="shopBtn">🛒</button>
- <button id="rewardBtn">🎁</button>
+ <button id="daily">🎁</button>
 </div>
 
 </div>
 
-<div class="shop" id="shop">
- <button onclick="closeShop()">⬅ Назад</button>
- <div class="row">
-  <button onclick="tab='color';renderShop()">Куб</button>
-  <button onclick="tab='shape';renderShop()">Форма</button>
-  <button onclick="tab='bg';renderShop()">Фон</button>
- </div>
- <div class="grid" id="items"></div>
+<div id="shop" class="shop">
+<button onclick="closeShop()">⬅ Назад</button>
+<div class="grid" id="items"></div>
 </div>
 
 
 <script>
-/* ======================
-   SAVE
-====================== */
-const S={
- g:(k,d)=>JSON.parse(localStorage.getItem(k))??d,
- s:(k,v)=>localStorage.setItem(k,JSON.stringify(v))
-}
+/* ================= SAVE ================= */
+const S={g:(k,d)=>JSON.parse(localStorage.getItem(k))??d,s:(k,v)=>localStorage.setItem(k,JSON.stringify(v))}
 
-/* ======================
-   STATE
-====================== */
+/* ================= STATE ================= */
 let state={
- coins:S.g("coins",0),
- owned:S.g("owned",["c0","s0","b0"]),
- level:S.g("lvl",1),
- active:{
-  color:S.g("color","#00ffb3"),
-  shape:S.g("shape","square"),
-  bg:S.g("bg","#00151d")
- }
+coins:S.g("coins",0),
+lvl:S.g("lvl",1),
+owned:S.g("owned",["c0","f0","b0"]),
+active:{
+color:S.g("color","#00ffb3"),
+form:S.g("form","square"),
+bg:S.g("bg","#00151d")
+}
 }
 
-/* ======================
-   SHOP DB
-====================== */
-const DB={
-color:[
- {id:"c0",price:0,val:"#00ffb3"},
- {id:"c1",price:20,val:"#ff5252"},
- {id:"c2",price:40,val:"#4da3ff"},
- {id:"c3",price:80,val:"#ffe066"},
- {id:"c4",price:120,val:"#b084ff"}
-],
-shape:[
- {id:"s0",price:0,val:"square"},
- {id:"s1",price:60,val:"circle"},
- {id:"s2",price:90,val:"diamond"},
- {id:"s3",price:150,val:"triangle"}
-],
-bg:[
- {id:"b0",price:0,val:"#00151d"},
- {id:"b1",price:70,val:"#200000"},
- {id:"b2",price:100,val:"#002013"},
- {id:"b3",price:160,val:"#140025"}
+/* ================= SHOP DB ================= */
+const DB=[
+{type:"color",id:"c1",val:"#ff5252",price:30},
+{type:"color",id:"c2",val:"#ffe066",price:60},
+{type:"color",id:"c3",val:"#4da3ff",price:100},
+{type:"form",id:"f1",val:"circle",price:80},
+{type:"form",id:"f2",val:"diamond",price:150},
+{type:"bg",id:"b1",val:"#240000",price:100},
+{type:"bg",id:"b2",val:"#002415",price:120},
 ]
-}
 
-/* ======================
-   SHOP
-====================== */
-let tab="color"
+/* ================= SHOP ================= */
 const shop=document.getElementById("shop")
 const items=document.getElementById("items")
 
-function renderShop(){
- items.innerHTML=""
- coins.innerText=state.coins
-
- DB[tab].forEach(it=>{
-  const d=document.createElement("div")
-  d.className="item"
-
-  if(tab!=="shape") d.style.background=it.val
-  else d.textContent=it.val[0].toUpperCase()
-
-  const owned=state.owned.includes(it.id)
-
-  if(!owned){
-   d.classList.add("lock")
-   d.innerHTML="💰 "+it.price
-  }
-
-  if(state.active[tab]===it.val)
-   d.classList.add("active")
-
-  d.onclick=()=>{
-   if(!owned){
-    if(state.coins<it.price) return
-    state.coins-=it.price
-    state.owned.push(it.id)
-    S.s("coins",state.coins)
-    S.s("owned",state.owned)
-   }
-   state.active[tab]=it.val
-   S.s(tab,it.val)
-   renderShop()
-  }
-
-  items.appendChild(d)
- })
-}
-
 function openShop(){shop.style.display="flex";renderShop()}
 function closeShop(){shop.style.display="none"}
-
 shopBtn.onclick=openShop
 
+function renderShop(){
+items.innerHTML=""
+coins.innerText=state.coins
 
-/* ======================
-   DAILY REWARD + CHEST
-====================== */
-rewardBtn.onclick=()=>{
- const today=Math.floor(Date.now()/86400000)
- if(S.g("daily",0)==today)return alert("Сегодня уже получено")
- S.s("daily",today)
- const r=50+Math.floor(Math.random()*50)
- state.coins+=r
+DB.forEach(it=>{
+const d=document.createElement("div")
+d.className="item"
+
+if(it.type!=="form")d.style.background=it.val
+else d.textContent=it.val[0].toUpperCase()
+
+const owned=state.owned.includes(it.id)
+
+if(!owned){
+ d.classList.add("lock")
+ d.innerHTML="💰 "+it.price
+}
+
+if(state.active[it.type]===it.val)d.classList.add("active")
+
+d.onclick=()=>{
+ if(!owned){
+  if(state.coins<it.price)return
+  state.coins-=it.price
+  state.owned.push(it.id)
+  S.s("owned",state.owned)
+ }
+ state.active[it.type]=it.val
+ S.s(it.type,it.val)
  S.s("coins",state.coins)
- alert("Награда +"+r)
+ renderShop()
 }
 
+items.appendChild(d)
+})
+}
 
-/* ======================
-   GAME
-====================== */
-const c=game
+/* ================= DAILY ================= */
+daily.onclick=()=>{
+const day=Math.floor(Date.now()/86400000)
+if(S.g("d",0)==day)return alert("Уже забрал")
+S.s("d",day)
+let r=50+Math.random()*50|0
+state.coins+=r
+S.s("coins",state.coins)
+alert("+"+r+" монет")
+}
+
+/* ================= GAME ================= */
+const c=document.getElementById("c")
 const ctx=c.getContext("2d")
+
 let W,H
-
-function resize(){
- W=c.width=innerWidth
- H=c.height=innerHeight
-}
-resize()
-onresize=resize
-
+function resize(){W=c.width=innerWidth;H=c.height=innerHeight}
+resize();onresize=resize
 
 let player={
- x:80,y:0,
- vy:0,
- size:26,
- onGround:false
+x:120,y:0,vy:0,jumps:0,size:28
 }
 
-let gravity=0.7
-let speed=4+state.level
+let gravity=0.8
+let speed=4+state.lvl
 let paused=false
+pause.onclick=()=>paused=!paused
 
 document.body.onpointerdown=()=>{
- if(paused)return
- if(player.onGround){
-  player.vy=-12
-  player.onGround=false
- }
+if(player.jumps<2){
+ player.vy=-13
+ player.jumps++
+}
 }
 
-pauseBtn.onclick=()=>paused=!paused
-
-
-/* ======================
-   LEVEL GEN
-====================== */
-let obstacles=[]
-let coinsArr=[]
-let portals=[]
+/* ======= OBJECTS ======= */
+let obs=[],coinsArr=[],portals=[]
+let dist=0
 
 function spawn(){
- if(Math.random()<.02)
-  obstacles.push({x:W,y:H-40,w:30,h:30})
-
- if(Math.random()<.02)
-  coinsArr.push({x:W,y:H-120})
-
- if(Math.random()<.005)
-  portals.push({x:W,y:H-70})
+if(Math.random()<.02)obs.push({x:W,y:H-40,w:28,h:28})
+if(Math.random()<.02)coinsArr.push({x:W,y:H-120})
+if(Math.random()<.005)portals.push({x:W,y:H-70})
 }
 
-
-/* ======================
-   DRAW PLAYER
-====================== */
-function drawPlayer(){
- ctx.fillStyle=state.active.color
-
- if(state.active.shape==="circle"){
-  ctx.beginPath()
-  ctx.arc(player.x,player.y,player.size/2,0,7)
-  ctx.fill()
- }
- else{
-  ctx.fillRect(player.x-player.size/2,player.y-player.size/2,player.size,player.size)
- }
-}
-
-
-/* ======================
-   LOOP
-====================== */
+/* ======= LOOP ======= */
 function loop(){
 
- if(!paused){
+if(!paused){
 
- spawn()
+dist+=speed
+bar.style.width=(dist%2000)/20+"%"
 
- player.vy+=gravity
- player.y+=player.vy
-
- if(player.y>H-40){
-  player.y=H-40
-  player.vy=0
-  player.onGround=true
- }
-
- obstacles.forEach(o=>o.x-=speed)
- coinsArr.forEach(o=>o.x-=speed)
- portals.forEach(o=>o.x-=speed)
-
- obstacles.forEach(o=>{
-  if(Math.abs(o.x-player.x)<25 && Math.abs(o.y-player.y)<25){
-   alert("Game Over")
-   location.reload()
-  }
- })
-
- coinsArr=coinsArr.filter(o=>{
-  if(Math.abs(o.x-player.x)<25 && Math.abs(o.y-player.y)<25){
-   state.coins++
-   S.s("coins",state.coins)
-   return false
-  }
-  return o.x>-20
- })
-
- portals=portals.filter(p=>{
-  if(Math.abs(p.x-player.x)<25){
-   gravity*=-1
-   return false
-  }
-  return p.x>-20
- })
- }
-
- ctx.fillStyle=state.active.bg
- ctx.fillRect(0,0,W,H)
-
- ctx.fillStyle="#333"
- ctx.fillRect(0,H-20,W,20)
-
- drawPlayer()
-
- ctx.fillStyle="red"
- obstacles.forEach(o=>ctx.fillRect(o.x,o.y,o.w,o.h))
-
- ctx.fillStyle="gold"
- coinsArr.forEach(o=>ctx.fillRect(o.x,o.y,10,10))
-
- ctx.fillStyle="cyan"
- portals.forEach(p=>ctx.fillRect(p.x,p.y,12,40))
-
- requestAnimationFrame(loop)
+if(dist>2000){
+ state.lvl++
+ S.s("lvl",state.lvl)
+ speed+=0.6
+ dist=0
 }
 
+spawn()
+
+player.vy+=gravity
+player.y+=player.vy
+
+if(player.y>H-40){
+ player.y=H-40
+ player.vy=0
+ player.jumps=0
+}
+
+obs.forEach(o=>o.x-=speed)
+coinsArr.forEach(o=>o.x-=speed)
+portals.forEach(o=>o.x-=speed)
+
+obs.forEach(o=>{
+ if(Math.abs(o.x-player.x)<25 && Math.abs(o.y-player.y)<25){
+  alert("Game Over")
+  location.reload()
+ }
+})
+
+coinsArr=coinsArr.filter(o=>{
+ if(Math.abs(o.x-player.x)<25 && Math.abs(o.y-player.y)<25){
+  state.coins++
+  S.s("coins",state.coins)
+  return false
+ }
+ return o.x>-20
+})
+
+portals=portals.filter(p=>{
+ if(Math.abs(p.x-player.x)<25){
+  gravity*=-1
+  return false
+ }
+ return p.x>-20
+})
+}
+
+/* DRAW */
+ctx.fillStyle=state.active.bg
+ctx.fillRect(0,0,W,H)
+
+ctx.fillStyle="#333"
+ctx.fillRect(0,H-20,W,20)
+
+ctx.fillStyle=state.active.color
+
+if(state.active.form=="circle"){
+ ctx.beginPath()
+ ctx.arc(player.x,player.y,player.size/2,0,7)
+ ctx.fill()
+}else{
+ ctx.fillRect(player.x-player.size/2,player.y-player.size/2,player.size,player.size)
+}
+
+ctx.fillStyle="red"
+obs.forEach(o=>ctx.fillRect(o.x,o.y,o.w,o.h))
+
+ctx.fillStyle="gold"
+coinsArr.forEach(o=>ctx.fillRect(o.x,o.y,10,10))
+
+ctx.fillStyle="cyan"
+portals.forEach(p=>ctx.fillRect(p.x,p.y,12,40))
+
+coins.innerText=state.coins
+lvl.innerText=state.lvl
+
+requestAnimationFrame(loop)
+}
 loop()
 </script>
 </body>
