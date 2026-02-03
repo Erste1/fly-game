@@ -3,121 +3,179 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Cyber-Fly Ultra</title>
+    <title>Geometry Dash Classic</title>
     <style>
-        body { margin: 0; background: #020205; overflow: hidden; font-family: 'Segoe UI', sans-serif; touch-action: manipulation; }
-        canvas { display: block; }
-        #ui { position: absolute; top: 25px; left: 25px; color: #0ff; font-size: 28px; font-weight: bold; text-shadow: 0 0 15px #0ff; pointer-events: none; }
-        #adv { position: absolute; bottom: 0; left: 0; width: 100%; height: 60px; background: linear-gradient(0deg, rgba(0,255,255,0.2) 0%, transparent 100%); border-top: 1px solid #0ff; display: flex; align-items: center; justify-content: center; color: #0ff; font-size: 12px; letter-spacing: 2px; }
+        body { margin: 0; overflow: hidden; background: #222; font-family: sans-serif; }
+        canvas { display: block; background: #0072ff; } /* Классический синий фон */
+        #ui {
+            position: absolute; top: 10px; left: 10px;
+            color: white; font-size: 20px; font-weight: bold;
+            pointer-events: none; text-transform: uppercase;
+        }
     </style>
 </head>
 <body>
-    <div id="ui">SCORE: <span id="score">0</span></div>
-    <div id="adv">YANDEX ADS UNIT</div>
+    <div id="ui">Attempt: 1</div>
     <canvas id="game"></canvas>
 
     <script>
-        const canvas = document.getElementById("game");
-        const ctx = canvas.getContext("2d");
-        const scoreEl = document.getElementById("score");
+        const canvas = document.getElementById('game');
+        const ctx = canvas.getContext('2d');
+        const ui = document.getElementById('ui');
 
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
 
-        let bird = { x: 60, y: canvas.height/2, v: 0, w: 40, h: 20 };
-        let pipes = [];
-        let score = 0;
-        let frames = 0;
+        let attempts = 1;
         let gameActive = true;
+        const groundY = canvas.height - 100;
 
-        function drawDrone(x, y) {
-            ctx.save();
-            ctx.shadowBlur = 20;
-            ctx.shadowColor = "#0ff";
-            ctx.fillStyle = "#0ff";
-            // Корпус дрона
-            ctx.fillRect(x, y + 5, 30, 10);
-            // Пропеллеры (ножки)
-            ctx.fillRect(x - 5, y, 10, 5);
-            ctx.fillRect(x + 25, y, 10, 5);
-            ctx.fillRect(x - 5, y + 15, 10, 5);
-            ctx.fillRect(x + 25, y + 15, 10, 5);
-            ctx.restore();
+        const player = {
+            x: 100,
+            y: groundY - 40,
+            size: 40,
+            vy: 0,
+            gravity: 0.9,
+            jumpPower: -13,
+            rotation: 0,
+            particles: []
+        };
+
+        let obstacles = [];
+        let frame = 0;
+
+        class Particle {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.size = Math.random() * 10 + 5;
+                this.life = 1.0;
+                this.vX = -5; // Улетают назад
+            }
+            draw() {
+                ctx.fillStyle = `rgba(255, 255, 255, ${this.life})`;
+                ctx.fillRect(this.x, this.y, this.size, this.size);
+            }
+        }
+
+        function createObstacle() {
+            obstacles.push({
+                x: canvas.width + 50,
+                y: groundY,
+                w: 40,
+                h: 40
+            });
+        }
+
+        function reset() {
+            attempts++;
+            ui.innerText = `Attempt: ${attempts}`;
+            obstacles = [];
+            player.y = groundY - 40;
+            player.vy = 0;
+            player.rotation = 0;
+            gameActive = true;
+        }
+
+        function update() {
+            if (!gameActive) return;
+
+            // Прыжок и гравитация
+            player.vy += player.gravity;
+            player.y += player.vy;
+
+            if (player.y >= groundY - player.size) {
+                player.y = groundY - player.size;
+                player.vy = 0;
+                player.rotation = 0;
+            } else {
+                player.rotation += 6; // Крутится только в воздухе
+            }
+
+            // Шлейф партиклов
+            if (frame % 2 === 0) {
+                player.particles.push(new Particle(player.x, player.y + player.size / 2));
+            }
+
+            player.particles.forEach((p, i) => {
+                p.x += p.vX;
+                p.life -= 0.05;
+                if (p.life <= 0) player.particles.splice(i, 1);
+            });
+
+            // Препятствия
+            if (frame % 80 === 0) createObstacle();
+
+            obstacles.forEach((obs, i) => {
+                obs.x -= 8; // Скорость игры
+
+                // Коллизия шипа (треугольника)
+                if (player.x + player.size > obs.x + 10 && 
+                    player.x < obs.x + obs.w - 10 && 
+                    player.y + player.size > obs.y - obs.h) {
+                    gameActive = false;
+                    setTimeout(reset, 500);
+                }
+
+                if (obs.x < -100) obstacles.splice(i, 1);
+            });
+
+            frame++;
         }
 
         function draw() {
-            if (!gameActive) return;
-
-            // Глубокий темный фон
-            ctx.fillStyle = "#020205";
+            // Фон
+            ctx.fillStyle = '#0072ff';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Сетка на фоне для стиля
-            ctx.strokeStyle = "rgba(0, 255, 255, 0.05)";
-            for(let i=0; i<canvas.width; i+=50) { ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,canvas.height); ctx.stroke(); }
+            // Пол
+            ctx.fillStyle = '#0056c1';
+            ctx.fillRect(0, groundY, canvas.width, canvas.height - groundY);
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 4;
+            ctx.strokeRect(-10, groundY, canvas.width + 20, 5);
 
-            // Физика
-            bird.v += 0.55;
-            bird.y += bird.v;
-            drawDrone(bird.x, bird.y);
+            // Партиклы
+            player.particles.forEach(p => p.draw());
 
-            // Препятствия (Неоновые стены)
-            if (frames % 90 === 0) {
-                let gap = 200;
-                let topH = Math.random() * (canvas.height - gap - 150) + 75;
-                pipes.push({ x: canvas.width, t: topH, g: gap, passed: false });
-            }
+            // Игрок (Куб)
+            ctx.save();
+            ctx.translate(player.x + player.size/2, player.y + player.size/2);
+            ctx.rotate(player.rotation * Math.PI / 180);
+            ctx.fillStyle = '#00ff00'; // Классический зеленый
+            ctx.fillRect(-player.size/2, -player.size/2, player.size, player.size);
+            ctx.strokeStyle = 'black';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(-player.size/2, -player.size/2, player.size, player.size);
+            // Лицо кубика
+            ctx.fillStyle = 'black';
+            ctx.fillRect(-12, -12, 8, 8);
+            ctx.fillRect(4, -12, 8, 8);
+            ctx.fillRect(-10, 5, 20, 4);
+            ctx.restore();
 
-            pipes.forEach((p, i) => {
-                p.x -= 4.5;
-                
-                // Эффект свечения стен
-                ctx.save();
-                ctx.shadowBlur = 15;
-                ctx.shadowColor = "#f0f";
-                ctx.fillStyle = "#f0f";
-                
-                // Верхний лазер
-                ctx.fillRect(p.x, 0, 15, p.t);
-                ctx.fillRect(p.x - 5, p.t - 5, 25, 5); // Наконечник
-                
-                // Нижний лазер
-                ctx.fillRect(p.x, p.t + p.g, 15, canvas.height);
-                ctx.fillRect(p.x - 5, p.t + p.g, 25, 5); // Наконечник
-                ctx.restore();
-
-                // Коллизия
-                if (bird.x + 30 > p.x && bird.x < p.x + 15) {
-                    if (bird.y < p.t || bird.y + 20 > p.t + p.g) gameOver();
-                }
-
-                if (!p.passed && p.x < bird.x) {
-                    p.passed = true;
-                    score++;
-                    scoreEl.innerText = score;
-                }
-                if (p.x < -50) pipes.splice(i, 1);
+            // Шипы
+            obstacles.forEach(obs => {
+                ctx.fillStyle = '#333';
+                ctx.beginPath();
+                ctx.moveTo(obs.x, obs.y);
+                ctx.lineTo(obs.x + obs.w / 2, obs.y - obs.h);
+                ctx.lineTo(obs.x + obs.w, obs.y);
+                ctx.fill();
+                ctx.strokeStyle = 'white';
+                ctx.lineWidth = 2;
+                ctx.stroke();
             });
 
-            if (bird.y > canvas.height || bird.y < 0) gameOver();
-            frames++;
+            update();
             requestAnimationFrame(draw);
         }
 
-        function gameOver() {
-            gameActive = false;
-            ctx.fillStyle = "rgba(255, 0, 255, 0.3)";
-            ctx.fillRect(0,0, canvas.width, canvas.height);
-            setTimeout(() => {
-                bird.y = canvas.height/2; bird.v = 0;
-                pipes = []; score = 0; scoreEl.innerText = score;
-                gameActive = true; frames = 0; draw();
-            }, 800);
-        }
-
-        const jump = () => { if(gameActive) bird.v = -8.5; };
-        window.addEventListener("touchstart", jump);
-        window.addEventListener("mousedown", jump);
+        // Управление (клик или пробел)
+        const jumpAction = () => { if (player.y >= groundY - player.size) player.vy = player.jumpPower; };
+        window.addEventListener('mousedown', jumpAction);
+        window.addEventListener('touchstart', (e) => { e.preventDefault(); jumpAction(); });
+        window.addEventListener('keydown', (e) => { if (e.code === 'Space') jumpAction(); });
 
         draw();
     </script>
