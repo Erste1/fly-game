@@ -3,20 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Cyber-Fly Pro</title>
+    <title>Cyber-Fly Ultra</title>
     <style>
-        body { margin: 0; background: #050505; overflow: hidden; font-family: 'Courier New', monospace; touch-action: manipulation; }
+        body { margin: 0; background: #020205; overflow: hidden; font-family: 'Segoe UI', sans-serif; touch-action: manipulation; }
         canvas { display: block; }
-        #ui { position: absolute; top: 20px; left: 20px; color: #0ff; font-size: 24px; text-shadow: 0 0 10px #0ff; pointer-events: none; }
-        /* Место под баннер */
-        #adv { position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 320px; height: 50px; background: rgba(0,255,255,0.1); border-top: 1px solid #0ff; display: flex; align-items: center; justify-content: center; color: #0ff; font-size: 10px; }
+        #ui { position: absolute; top: 25px; left: 25px; color: #0ff; font-size: 28px; font-weight: bold; text-shadow: 0 0 15px #0ff; pointer-events: none; }
+        #adv { position: absolute; bottom: 0; left: 0; width: 100%; height: 60px; background: linear-gradient(0deg, rgba(0,255,255,0.2) 0%, transparent 100%); border-top: 1px solid #0ff; display: flex; align-items: center; justify-content: center; color: #0ff; font-size: 12px; letter-spacing: 2px; }
     </style>
 </head>
 <body>
     <div id="ui">SCORE: <span id="score">0</span></div>
-    
-    <div id="adv">РЕКЛАМНЫЙ БЛОК (YANDEX ADS)</div>
-
+    <div id="adv">YANDEX ADS UNIT</div>
     <canvas id="game"></canvas>
 
     <script>
@@ -27,85 +24,100 @@
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
 
-        let bird = { x: 50, y: canvas.height/2, v: 0, size: 25 };
+        let bird = { x: 60, y: canvas.height/2, v: 0, w: 40, h: 20 };
         let pipes = [];
         let score = 0;
         let frames = 0;
         let gameActive = true;
 
+        function drawDrone(x, y) {
+            ctx.save();
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = "#0ff";
+            ctx.fillStyle = "#0ff";
+            // Корпус дрона
+            ctx.fillRect(x, y + 5, 30, 10);
+            // Пропеллеры (ножки)
+            ctx.fillRect(x - 5, y, 10, 5);
+            ctx.fillRect(x + 25, y, 10, 5);
+            ctx.fillRect(x - 5, y + 15, 10, 5);
+            ctx.fillRect(x + 25, y + 15, 10, 5);
+            ctx.restore();
+        }
+
         function draw() {
             if (!gameActive) return;
 
-            // Фон
-            ctx.fillStyle = "#050505";
+            // Глубокий темный фон
+            ctx.fillStyle = "#020205";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Дрон (игрок)
-            bird.v += 0.6;
-            bird.y += bird.v;
-            ctx.fillStyle = "#0ff";
-            ctx.shadowBlur = 15;
-            ctx.shadowColor = "#0ff";
-            ctx.fillRect(bird.x, bird.y, bird.size, bird.size);
-            ctx.shadowBlur = 0;
+            // Сетка на фоне для стиля
+            ctx.strokeStyle = "rgba(0, 255, 255, 0.05)";
+            for(let i=0; i<canvas.width; i+=50) { ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,canvas.height); ctx.stroke(); }
 
-            // Препятствия (лазеры)
-            if (frames % 80 === 0) {
-                let gap = 180;
-                let topH = Math.random() * (canvas.height - gap - 100) + 50;
+            // Физика
+            bird.v += 0.55;
+            bird.y += bird.v;
+            drawDrone(bird.x, bird.y);
+
+            // Препятствия (Неоновые стены)
+            if (frames % 90 === 0) {
+                let gap = 200;
+                let topH = Math.random() * (canvas.height - gap - 150) + 75;
                 pipes.push({ x: canvas.width, t: topH, g: gap, passed: false });
             }
 
             pipes.forEach((p, i) => {
-                p.x -= 4;
-                ctx.fillStyle = "#f0f";
-                ctx.shadowBlur = 10;
+                p.x -= 4.5;
+                
+                // Эффект свечения стен
+                ctx.save();
+                ctx.shadowBlur = 15;
                 ctx.shadowColor = "#f0f";
-                // Верхний столб
-                ctx.fillRect(p.x, 0, 40, p.t);
-                // Нижний столб
-                ctx.fillRect(p.x, p.t + p.g, 40, canvas.height);
-                ctx.shadowBlur = 0;
+                ctx.fillStyle = "#f0f";
+                
+                // Верхний лазер
+                ctx.fillRect(p.x, 0, 15, p.t);
+                ctx.fillRect(p.x - 5, p.t - 5, 25, 5); // Наконечник
+                
+                // Нижний лазер
+                ctx.fillRect(p.x, p.t + p.g, 15, canvas.height);
+                ctx.fillRect(p.x - 5, p.t + p.g, 25, 5); // Наконечник
+                ctx.restore();
 
-                // Проверка столкновения
-                if (bird.x + bird.size > p.x && bird.x < p.x + 40) {
-                    if (bird.y < p.t || bird.y + bird.size > p.t + p.g) {
-                        gameOver();
-                    }
+                // Коллизия
+                if (bird.x + 30 > p.x && bird.x < p.x + 15) {
+                    if (bird.y < p.t || bird.y + 20 > p.t + p.g) gameOver();
                 }
 
-                // Очки
                 if (!p.passed && p.x < bird.x) {
                     p.passed = true;
                     score++;
                     scoreEl.innerText = score;
                 }
-
-                if (p.x < -40) pipes.splice(i, 1);
+                if (p.x < -50) pipes.splice(i, 1);
             });
 
             if (bird.y > canvas.height || bird.y < 0) gameOver();
-
             frames++;
             requestAnimationFrame(draw);
         }
 
         function gameOver() {
             gameActive = false;
+            ctx.fillStyle = "rgba(255, 0, 255, 0.3)";
+            ctx.fillRect(0,0, canvas.width, canvas.height);
             setTimeout(() => {
-                bird.y = canvas.height/2;
-                bird.v = 0;
-                pipes = [];
-                score = 0;
-                scoreEl.innerText = score;
-                gameActive = true;
-                frames = 0;
-                draw();
-            }, 1000);
+                bird.y = canvas.height/2; bird.v = 0;
+                pipes = []; score = 0; scoreEl.innerText = score;
+                gameActive = true; frames = 0; draw();
+            }, 800);
         }
 
-        window.addEventListener("touchstart", () => { bird.v = -8; });
-        window.addEventListener("mousedown", () => { bird.v = -8; });
+        const jump = () => { if(gameActive) bird.v = -8.5; };
+        window.addEventListener("touchstart", jump);
+        window.addEventListener("mousedown", jump);
 
         draw();
     </script>
