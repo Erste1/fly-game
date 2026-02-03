@@ -1,307 +1,345 @@
-<!-- ВНИМАНИЕ: файл большой, но это НОРМАЛЬНО -->
-<!-- Это уже полноценная игра, а не демка -->
-
 <!DOCTYPE html>
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="viewport"
+content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 
-<title>Neon Dash Ultimate</title>
+<title>Neon Dash</title>
 
 <style>
-*{margin:0;padding:0;box-sizing:border-box;font-family:system-ui}
-body{background:#0b1016;overflow:hidden;color:#fff}
+/* =========================
+   MODERN MOBILE UI
+========================= */
 
-canvas{position:fixed;inset:0}
-
-.ui{
-position:fixed;inset:0;
-display:flex;flex-direction:column;
-justify-content:space-between;
-padding:12px;pointer-events:none
+:root{
+--bg:#0b0f14;
+--panel:#111827;
+--card:#1f2937;
+--green:#2ecc71;
+--yellow:#f1c40f;
+--red:#e74c3c;
 }
 
-.row{display:flex;gap:8px}
+*{box-sizing:border-box}
+
+body{
+margin:0;
+overflow:hidden;
+background:var(--bg);
+font-family:system-ui;
+color:#fff;
+}
+
+/* ===== TOP BAR ===== */
+
+#topbar{
+position:fixed;
+top:0;
+left:0;
+width:100%;
+height:70px;
+background:var(--panel);
+display:flex;
+align-items:center;
+justify-content:space-between;
+padding:0 16px;
+z-index:10;
+box-shadow:0 6px 20px rgba(0,0,0,.6);
+}
+
+.btn{
+background:var(--card);
+border:none;
+color:white;
+padding:10px 14px;
+border-radius:12px;
+font-size:14px;
+margin-left:6px;
+}
+
+/* ===== CANVAS ===== */
+
+canvas{
+position:fixed;
+bottom:0;
+left:0;
+width:100%;
+height:calc(100vh - 70px);
+}
+
+/* ===== MODAL ===== */
+
+.modal{
+position:fixed;
+inset:0;
+background:rgba(0,0,0,.85);
+display:flex;
+align-items:center;
+justify-content:center;
+z-index:20;
+}
 
 .card{
-background:rgba(20,30,40,.8);
-backdrop-filter:blur(12px);
-border-radius:14px;
-padding:8px 12px;
-pointer-events:auto
-}
-
-button{
-border:none;border-radius:12px;
-padding:10px 14px;
-background:#1e2a36;color:#fff;
-font-size:15px
-}
-
-.shop{
-position:fixed;inset:0;
-background:#0e141b;
-display:none;
-flex-direction:column;
-padding:12px;
-gap:10px;
-overflow:auto
+background:#111;
+padding:20px;
+border-radius:20px;
+width:92%;
+max-width:380px;
+max-height:80vh;
+overflow:auto;
 }
 
 .grid{
 display:grid;
-grid-template-columns:repeat(4,1fr);
-gap:8px
+grid-template-columns:repeat(2,1fr);
+gap:10px;
+margin-top:10px;
 }
 
 .item{
-height:60px;border-radius:12px;
-display:flex;align-items:center;justify-content:center;
-font-weight:700;background:#222
+background:#222;
+padding:14px;
+border-radius:12px;
+text-align:center;
+font-size:13px;
 }
 
-.lock{opacity:.35}
-.active{outline:3px solid #00ffb3}
-
-.progress{
-height:6px;background:#222;border-radius:6px;overflow:hidden
-}
-.bar{height:100%;background:#00ffb3;width:0%}
+.item.active{outline:3px solid var(--green)}
+.item.lock{opacity:.4}
 </style>
 </head>
 
 <body>
 
+<!-- TOP UI -->
+<div id="topbar">
+<div>💰 <span id="coins">0</span></div>
+<div>
+<button class="btn" onclick="Game.pause()">⏸</button>
+<button class="btn" onclick="Shop.open()">🛒</button>
+<button class="btn" onclick="Game.menu()">🏠</button>
+</div>
+</div>
+
 <canvas id="c"></canvas>
 
-<div class="ui">
-
-<div class="row">
- <div class="card">💰 <span id="coins">0</span></div>
- <div class="card">LVL <span id="lvl">1</span></div>
+<!-- SHOP -->
+<div id="shop" class="modal" style="display:none">
+<div class="card">
+<h3>МАГАЗИН</h3>
+<div id="items" class="grid"></div>
+<button class="btn" onclick="Shop.close()">Закрыть</button>
 </div>
-
-<div class="progress"><div class="bar" id="bar"></div></div>
-
-<div class="row">
- <button id="pause">⏸</button>
- <button id="shopBtn">🛒</button>
- <button id="daily">🎁</button>
 </div>
-
-</div>
-
-<div id="shop" class="shop">
-<button onclick="closeShop()">⬅ Назад</button>
-<div class="grid" id="items"></div>
-</div>
-
 
 <script>
-/* ================= SAVE ================= */
-const S={g:(k,d)=>JSON.parse(localStorage.getItem(k))??d,s:(k,v)=>localStorage.setItem(k,JSON.stringify(v))}
+/* =========================
+   TELEGRAM
+========================= */
+if(window.Telegram?.WebApp) Telegram.WebApp.expand();
 
-/* ================= STATE ================= */
-let state={
-coins:S.g("coins",0),
-lvl:S.g("lvl",1),
-owned:S.g("owned",["c0","f0","b0"]),
-active:{
-color:S.g("color","#00ffb3"),
-form:S.g("form","square"),
-bg:S.g("bg","#00151d")
-}
-}
+/* =========================
+   CANVAS
+========================= */
+const canvas=c;
+const ctx=canvas.getContext("2d");
 
-/* ================= SHOP DB ================= */
+function resize(){
+canvas.width=innerWidth;
+canvas.height=innerHeight-70;
+}
+resize();
+addEventListener("resize",resize);
+
+/* =========================
+   SAVE
+========================= */
+const Save={
+g:(k,d)=>JSON.parse(localStorage.getItem(k))??d,
+s:(k,v)=>localStorage.setItem(k,JSON.stringify(v))
+};
+
+/* =========================
+   STATE
+========================= */
+const State={
+coins:Save.g("coins",0),
+owned:Save.g("owned",["c0"]),
+active:Save.g("active",{color:"#2ecc71",shape:"square",bg:"#001b2f"})
+};
+
+/* =========================
+   SHOP DB
+========================= */
 const DB=[
-{type:"color",id:"c1",val:"#ff5252",price:30},
-{type:"color",id:"c2",val:"#ffe066",price:60},
-{type:"color",id:"c3",val:"#4da3ff",price:100},
-{type:"form",id:"f1",val:"circle",price:80},
-{type:"form",id:"f2",val:"diamond",price:150},
-{type:"bg",id:"b1",val:"#240000",price:100},
-{type:"bg",id:"b2",val:"#002415",price:120},
-]
+{id:"c0",type:"color",val:"#2ecc71",p:0},
+{id:"c1",type:"color",val:"#e74c3c",p:20},
+{id:"c2",type:"color",val:"#f1c40f",p:40},
+{id:"c3",type:"color",val:"#3498db",p:60},
 
-/* ================= SHOP ================= */
-const shop=document.getElementById("shop")
-const items=document.getElementById("items")
+{id:"b0",type:"bg",val:"#001b2f",p:0},
+{id:"b1",type:"bg",val:"#220000",p:50},
+{id:"b2",type:"bg",val:"#002b10",p:50}
+];
 
-function openShop(){shop.style.display="flex";renderShop()}
-function closeShop(){shop.style.display="none"}
-shopBtn.onclick=openShop
-
-function renderShop(){
-items.innerHTML=""
-coins.innerText=state.coins
-
+/* =========================
+   SHOP
+========================= */
+const Shop={
+open(){shop.style.display="flex";this.render()},
+close(){shop.style.display="none"},
+render(){
+items.innerHTML="";
 DB.forEach(it=>{
-const d=document.createElement("div")
-d.className="item"
+const own=State.owned.includes(it.id);
+const d=document.createElement("div");
+d.className="item"+(own?"":" lock");
 
-if(it.type!=="form")d.style.background=it.val
-else d.textContent=it.val[0].toUpperCase()
-
-const owned=state.owned.includes(it.id)
-
-if(!owned){
- d.classList.add("lock")
- d.innerHTML="💰 "+it.price
-}
-
-if(state.active[it.type]===it.val)d.classList.add("active")
+d.innerHTML= own?"USE":"💰 "+it.p;
 
 d.onclick=()=>{
- if(!owned){
-  if(state.coins<it.price)return
-  state.coins-=it.price
-  state.owned.push(it.id)
-  S.s("owned",state.owned)
- }
- state.active[it.type]=it.val
- S.s(it.type,it.val)
- S.s("coins",state.coins)
- renderShop()
+if(own){
+State.active[it.type]=it.val;
+}
+else if(State.coins>=it.p){
+State.coins-=it.p;
+State.owned.push(it.id);
+State.active[it.type]=it.val;
+Save.s("coins",State.coins);
+Save.s("owned",State.owned);
+}
+Save.s("active",State.active);
+UI.refresh();
+this.render();
+};
+items.appendChild(d);
+});
+}
+};
+
+/* =========================
+   PLAYER
+========================= */
+const Player={
+x:80,y:0,vy:0,
+size:40,
+
+reset(){this.y=Game.ground-this.size;this.vy=0},
+
+jump(){
+if(this.y>=Game.ground-this.size-2)
+this.vy=-14;
+},
+
+update(){
+this.vy+=0.8;
+this.y+=this.vy;
+
+if(this.y>Game.ground-this.size){
+this.y=Game.ground-this.size;
+this.vy=0;
+}
+},
+
+draw(){
+ctx.fillStyle=State.active.color;
+ctx.fillRect(this.x,this.y,this.size,this.size);
+}
+};
+
+/* =========================
+   GAME
+========================= */
+const Game={
+active:true,
+ground:0,
+speed:7,
+score:0,
+objs:[],
+
+pause(){this.active=!this.active},
+menu(){location.reload()},
+
+update(){
+if(!this.active)return;
+
+Player.update();
+
+if(Math.random()<0.02)
+this.objs.push({x:canvas.width,type:"spike"});
+
+if(Math.random()<0.02)
+this.objs.push({x:canvas.width,y:this.ground-60-Math.random()*120,type:"coin"});
+
+for(let i=this.objs.length-1;i>=0;i--){
+const o=this.objs[i];
+o.x-=this.speed;
+
+if(o.type==="spike"){
+if(Math.abs(o.x-Player.x)<35 && Player.y>this.ground-60)
+this.menu();
+}
+else{
+if(Math.hypot(o.x-Player.x,o.y-Player.y)<30){
+State.coins++;
+Save.s("coins",State.coins);
+this.objs.splice(i,1);
+continue;
+}
 }
 
-items.appendChild(d)
-})
+if(o.x<-50)this.objs.splice(i,1);
 }
+},
 
-/* ================= DAILY ================= */
-daily.onclick=()=>{
-const day=Math.floor(Date.now()/86400000)
-if(S.g("d",0)==day)return alert("Уже забрал")
-S.s("d",day)
-let r=50+Math.random()*50|0
-state.coins+=r
-S.s("coins",state.coins)
-alert("+"+r+" монет")
-}
+draw(){
+ctx.fillStyle=State.active.bg;
+ctx.fillRect(0,0,canvas.width,canvas.height);
 
-/* ================= GAME ================= */
-const c=document.getElementById("c")
-const ctx=c.getContext("2d")
+this.ground=canvas.height-100;
 
-let W,H
-function resize(){W=c.width=innerWidth;H=c.height=innerHeight}
-resize();onresize=resize
+ctx.fillStyle="#111";
+ctx.fillRect(0,this.ground,canvas.width,100);
 
-let player={
-x:120,y:0,vy:0,jumps:0,size:28
-}
-
-let gravity=0.8
-let speed=4+state.lvl
-let paused=false
-pause.onclick=()=>paused=!paused
-
-document.body.onpointerdown=()=>{
-if(player.jumps<2){
- player.vy=-13
- player.jumps++
-}
-}
-
-/* ======= OBJECTS ======= */
-let obs=[],coinsArr=[],portals=[]
-let dist=0
-
-function spawn(){
-if(Math.random()<.02)obs.push({x:W,y:H-40,w:28,h:28})
-if(Math.random()<.02)coinsArr.push({x:W,y:H-120})
-if(Math.random()<.005)portals.push({x:W,y:H-70})
-}
-
-/* ======= LOOP ======= */
-function loop(){
-
-if(!paused){
-
-dist+=speed
-bar.style.width=(dist%2000)/20+"%"
-
-if(dist>2000){
- state.lvl++
- S.s("lvl",state.lvl)
- speed+=0.6
- dist=0
-}
-
-spawn()
-
-player.vy+=gravity
-player.y+=player.vy
-
-if(player.y>H-40){
- player.y=H-40
- player.vy=0
- player.jumps=0
-}
-
-obs.forEach(o=>o.x-=speed)
-coinsArr.forEach(o=>o.x-=speed)
-portals.forEach(o=>o.x-=speed)
-
-obs.forEach(o=>{
- if(Math.abs(o.x-player.x)<25 && Math.abs(o.y-player.y)<25){
-  alert("Game Over")
-  location.reload()
- }
-})
-
-coinsArr=coinsArr.filter(o=>{
- if(Math.abs(o.x-player.x)<25 && Math.abs(o.y-player.y)<25){
-  state.coins++
-  S.s("coins",state.coins)
-  return false
- }
- return o.x>-20
-})
-
-portals=portals.filter(p=>{
- if(Math.abs(p.x-player.x)<25){
-  gravity*=-1
-  return false
- }
- return p.x>-20
-})
-}
-
-/* DRAW */
-ctx.fillStyle=state.active.bg
-ctx.fillRect(0,0,W,H)
-
-ctx.fillStyle="#333"
-ctx.fillRect(0,H-20,W,20)
-
-ctx.fillStyle=state.active.color
-
-if(state.active.form=="circle"){
- ctx.beginPath()
- ctx.arc(player.x,player.y,player.size/2,0,7)
- ctx.fill()
+this.objs.forEach(o=>{
+if(o.type==="spike"){
+ctx.fillStyle="#333";
+ctx.fillRect(o.x,this.ground-40,40,40);
 }else{
- ctx.fillRect(player.x-player.size/2,player.y-player.size/2,player.size,player.size)
+ctx.fillStyle="#f1c40f";
+ctx.beginPath();
+ctx.arc(o.x,o.y,10,0,Math.PI*2);
+ctx.fill();
 }
+});
 
-ctx.fillStyle="red"
-obs.forEach(o=>ctx.fillRect(o.x,o.y,o.w,o.h))
-
-ctx.fillStyle="gold"
-coinsArr.forEach(o=>ctx.fillRect(o.x,o.y,10,10))
-
-ctx.fillStyle="cyan"
-portals.forEach(p=>ctx.fillRect(p.x,p.y,12,40))
-
-coins.innerText=state.coins
-lvl.innerText=state.lvl
-
-requestAnimationFrame(loop)
+Player.draw();
 }
-loop()
+};
+
+/* =========================
+   UI
+========================= */
+const UI={
+refresh(){coins.textContent=State.coins}
+};
+UI.refresh();
+
+/* =========================
+   LOOP
+========================= */
+function loop(){
+Game.update();
+Game.draw();
+requestAnimationFrame(loop);
+}
+loop();
+
+/* INPUT */
+addEventListener("mousedown",()=>Player.jump());
+addEventListener("touchstart",e=>{e.preventDefault();Player.jump()},{passive:false});
 </script>
+
 </body>
 </html>
